@@ -257,10 +257,10 @@ def mag_max(l):
 def main():
 	display_logo()
 	
-	dim1 = 16
-	dim2 = 16
+	dim1 = 32
+	dim2 = 32
 
-	data = np.ones((dim1,dim2),dtype = np.int32) 
+	data = np.ones((dim1,dim2),dtype = np.int32)*100000
 
 	params = XCalibur_parameters()
 
@@ -316,25 +316,26 @@ def main():
 	A = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
 	B = np.zeros((cube_dim,cube_dim,cube_dim), dtype = np.int32)
 	
-	dqx = dqy = dqz = cube_dim
+	dqx = dqy = dqz = cube_dim//2
 		
-	q0x, q0y, q0z = np.array(Proj.Qfin(0,0).flatten())[0]	
+	q0x, q0y, q0z = 0,0,0	
 	
 	print 'RECIPROCAL SPACE CENTER :', q0x, q0y, q0z
 	print '-----------------------------'
 	
+	ent = 0
 	for X in range(dim1):
 		for Y in range(dim2):
 			qx,qy,qz = np.array(Proj.Qfin(X,Y).flatten())[0]
+			#print qx,qy,qz
 			print qx,qy,qz
-			
-			i = np.floor(cube_dim-1//2*(qx-q0x))
-			j = np.floor(cube_dim-1//2*(qy-q0y))
-			k = np.floor(cube_dim-1//2*(qz-q0z))
-			print i,j,k
-			if i < cube_dim and j < cube_dim and k < cube_dim:
+			i ,j ,k = np.floor(np.array([qx+dqx, qy+dqy, qz+dqz]))
+			#print i,j,k
+			if i <= dqx and j <= dqy and k <= dqz:
+				ent +=1
 				A[i,j,k] = data[X,Y]/(Corr.POL(X,Y,n)*Corr.C3(X,Y))
-	print '3D Intensity Distribution :'		
+	print '3D Intensity Distribution :'	
+	print '%d values'%ent	
 	print A
 	
 	
