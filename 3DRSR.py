@@ -10,6 +10,8 @@ import sys
 import numpy as np
 from numpy.linalg import norm
 
+np.matrix=None
+
 __version__=0.0
 
 #--------------------------------------------------------------------------------------------------------
@@ -38,25 +40,53 @@ def display_logo():
 # Rotation Matrix
 #--------------------------------------------------------------------------------------------------------
 
+
+def Rotation( angle, rotation_axis=0 ):
+
+	if type(rotation_axis)==type("") :
+		rotation_axis={"x":0,"y":1,"z":3}
+
+	assert((rotation_axis>=0 and rotation_axis<=3))
+	ret_val = np.zeros([3,3],"d")
+	i1=rotation_axis
+	i2=(rotation_axis+1)%3
+	i3=(rotation_axis+2)%3
+	ret_val[i1,i1  ] =  1
+	ret_val[i2,i2  ] =  np.cos(angle)
+	ret_val[i3,i3  ] =  np.cos(angle)
+	ret_val[i2,i3  ] =  np.sin(angle)
+	ret_val[i3,i2  ] = -np.sin(angle)
+	return ret_val
+
+
 def R1(x):
-	r1 = np.matrix([[1, 0,0], [0,np.cos(x),np.sin(x)],[0,-np.sin(x),np.cos(x)]])
+	r1 = np.array([[1., 0,0], [0,np.cos(x),np.sin(x)],[0,-np.sin(x),np.cos(x)]])
 	return r1
 
 def R2(x):
-	r2 = np.matrix([[np.cos(x), 0,-np.sin(x)], [0,1,0],[np.sin(x),0,np.cos(x)]])
+	r2 = np.array([[np.cos(x), 0.,-np.sin(x)], [0,1,0],[np.sin(x),0,np.cos(x)]])
 	return r2
 	
 def R3(x):
-	r3 = np.matrix([[np.cos(x),np.sin(x) ,0], [-np.sin(x),np.cos(x),0],[0,0,1]])
+	r3 = np.array([[np.cos(x),np.sin(x) ,0.0], [-np.sin(x),np.cos(x),0],[0,0,1]])
 	return r3
 
 #--------------------------------------------------------------------------------------------------------	
 	
-def R(omega,phi,kappa,alpha,beta,omega_offset):
+def R(omeg+a,phi,kappa,alpha,beta,omega_offset):
 	""" 
 	Primary rotation of reciprocal space. 
 	Omega, kappa, phi are the nominal values of the angle
 	"""
+	tmp =          R3(omega + omega_offset)
+        tmp=np.dot( tmp,  R2(alpha) )
+	tmp=np.dot( tmp,  R3(kappa) )
+	tmp=np.dot( tmp,  R2(-alpha))
+	tmp=np.dot( tmp,  R2(beta)  )
+	tmp=np.dot( tmp,  R3(phi)   )
+	tmp=np.dot( tmp,  R2(-beta) )
+	return   tmp
+
 	r = R3(omega + omega_offset).dot(R2(alpha)).dot(R3(kappa)).dot(R2(-alpha)).dot(R2(beta)).dot(R3(phi)).dot(R2(-beta))
 	return r
 
@@ -89,8 +119,12 @@ def B(b2):
 #--------------------------------------------------------------------------------------------------------
 
 def P0(dist,b2):
+	""" Beam tilt matrix """
+	BM = R2(b2)
 	""" Primary projection of pixel coordinates (X,Y) to the reciprocal space. """
-	p0 = B(b2).dot(np.matrix([[dist],[0],[0]]))
+	# p0 = BM.dot(np.matrix([[dist],[0],[0]]))
+
+	p0 = np.dot(BM,   [ dist, 0,0 ] ) 
 	return p0
 	
 #--------------------------------------------------------------------------------------------------------
@@ -106,7 +140,13 @@ def Y0(Y,horizontal_size):
 #--------------------------------------------------------------------------------------------------------
 
 def P(theta, theta_offset,d1,d2,dist,x,y):
-	return DET(theta, theta_offset, d1,d2).dot(np.matrix([[-dist],[x],[y]]))
+	res = np.dot( 
+		DET(theta, theta_offset, d1,d2) ,
+		[-dist , x , y]
+		)
+	return res
+
+	# return DET(theta, theta_offset, d1,d2).dot(np.matrix([[-dist],[x],[y]]))
 
 #--------------------------------------------------------------------------------------------------------
 
@@ -143,7 +183,7 @@ class Projection(object):
 
 	
 	def Q0(self,X,Y):
-		x,y = np.array((self.pixel_size*self.MD*np.matrix([[X-X0(self.det_origin_X,self.dim1)],[Y-Y0(self.det_origin_Y,self.dim2)]])).flatten())[0]
+		x,y = np.array((self.pixel_size*self.MD*np.array([[X-X0(self.det_origin_X,self.dim1)],[Y-Y0(self.det_origin_Y,self.dim2)]])).flatten())[0]
 		p = P(self.theta, self.theta_offset,self.d1,self.d2,self.dist,x,y)
 		q0 = (p/norm(p)+P0(self.dist,self.beam_tilt_angle)/self.dist)/self.lmbda
 		return q0
@@ -162,14 +202,14 @@ class Projection(object):
 # Corrections
 #--------------------------------------------------------------------------------------------------------
 
-MD0 = np.matrix([[1,0],[0,1]])
-MD1 = np.matrix([[-1,0],[0,1]])
-MD2 = np.matrix([[1,0],[0,-1]]) 
-MD3 = np.matrix([[-1,0],[0,-1]])
-MD4 = np.matrix([[0,1],[1,0]])
-MD5 = np.matrix([[0,-1],[1,0]])
-MD6 = np.matrix([[0,1],[-1,0]])
-MD7 = np.matrix([[0,-1],[-1,0]])
+MD0 = np.array([[1,0],[0,1]  ],"d")
+MD1 = np.array([[-1,0],[0,1] ],"d")
+MD2 = np.array([[1,0],[0,-1] ],"d") 
+MD3 = np.array([[-1,0],[0,-1]],"d")
+MD4 = np.array([[0,1],[1,0]  ],"d")
+MD5 = np.array([[0,-1],[1,0] ],"d")
+MD6 = np.array([[0,1],[-1,0] ],"d")
+MD7 = np.array([[0,-1],[-1,0]],"d")
 
 #--------------------------------------------------------------------------------------------------------
 
@@ -288,7 +328,55 @@ def main():
 	
 	Proj = Projection(theta, theta_offset,d1,d2,params.dist,params.lmbda,params.beam_tilt_angle,params.pixel_size,MD,params.det_origin_X,params.det_origin_Y,dim1,dim2,omega,phi,kappa,alpha,beta,omega_offset,r1,r2,r3)
 	
-	Q0 = np.zeros((dim1,dim2,3),dtype = np.float32) 
+	Q0 = np.zeros((dim2,dim1,3),dtype = np.float32) 
+	MD_pix_tmp = pixel_size*MD
+
+
+
+
+	Q_for_x = np.zeros((dim1 ,3),dtype = np.float32) 
+	X_array_tmp = np.zeros( (dim1,2  ))
+	X_array_tmp [:,0] = np.arange(dim1) - (params.det_origin_X +dim1/2.0 )
+
+	Q_for_y = np.zeros((dim2 ,3),dtype = np.float32) 
+	Y_array_tmp = np.zeros( (dim2,2  ))
+	Y_array_tmp [:,1] = np.arange(dim2) - (params.det_origin_Y +dim2/2.0 )
+
+	X_array_tmp=np.tensordot( MD_pix_tmp ,  X_array_tmp , [1],[1]   )
+	Y_array_tmp=np.tensordot( MD_pix_tmp ,  Y_array_tmp , [1],[1]   )
+	
+
+	YX_array_tmp =  Y_array_tmp[:,None,:] + X_array_tmp[None,:,:] 
+	
+
+	P_total_tmp = np.zeros((dim2, dim1 ,3),dtype = np.float32)
+ 
+	P_total_tmp[:,:, 1:3] =  YX_array_tmp 
+
+	P_total_tmp[:,:,  0 ] =  -DIST
+	
+	P_total_tmp=np.tensordot( DET  , P_total_tmp  , [1],[1]   )
+
+	
+	P_total_tmp_modulus = np.sqrt( np.sum(  P_total_tmp   , axis=-1))
+	
+	Q0 = ((  P_total_tmp.T/    P_total_tmp_modulus.T   ).T  - result_of_B_dot_DIST)/LAMBDA
+
+
+
+	X-X0(self.det_origin_X,self.dim1)
+
+
+	x,y = np.array((*np.array([[X-X0(self.det_origin_X,self.dim1)],[Y-Y0(self.det_origin_Y,self.dim2)]])).flatten())[0]
+	p = P(self.theta, self.theta_offset,self.d1,self.d2,self.dist,x,y)
+	q0 = (p/norm(p)+P0(self.dist,self.beam_tilt_angle)/self.dist)/self.lmbda
+
+
+
+		for Y in range(dim2):
+			Q0[X,Y,:] = Proj.Q0(X,Y).flatten()
+
+
 	for X in range(dim1):
 		for Y in range(dim2):
 			Q0[X,Y,:] = Proj.Q0(X,Y).flatten()
