@@ -41,11 +41,9 @@ def display_logo():
 #--------------------------------------------------------------------------------------------------------
 
 
-def Rotation( angle, rotation_axis=0 ):
-
+def Rotation(angle, rotation_axis=0 ):
 	if type(rotation_axis)==type("") :
-		rotation_axis={"x":0,"y":1,"z":3}
-
+		rotation_axis={"x":0,"y":1,"z":2}
 	assert((rotation_axis>=0 and rotation_axis<=3))
 	ret_val = np.zeros([3,3],"d")
 	i1=rotation_axis
@@ -58,34 +56,21 @@ def Rotation( angle, rotation_axis=0 ):
 	ret_val[i3,i2  ] = -np.sin(angle)
 	return ret_val
 
-
-def R1(x):
-	r1 = np.array([[1., 0,0], [0,np.cos(x),np.sin(x)],[0,-np.sin(x),np.cos(x)]])
-	return r1
-
-def R2(x):
-	r2 = np.array([[np.cos(x), 0.,-np.sin(x)], [0,1,0],[np.sin(x),0,np.cos(x)]])
-	return r2
-	
-def R3(x):
-	r3 = np.array([[np.cos(x),np.sin(x) ,0.0], [-np.sin(x),np.cos(x),0],[0,0,1]])
-	return r3
-
 #--------------------------------------------------------------------------------------------------------	
 	
-def R(omeg+a,phi,kappa,alpha,beta,omega_offset):
+def R(omega,phi,kappa,alpha,beta,omega_offset):
 	""" 
 	Primary rotation of reciprocal space. 
 	Omega, kappa, phi are the nominal values of the angle
 	"""
-	tmp =          R3(omega + omega_offset)
-        tmp=np.dot( tmp,  R2(alpha) )
-	tmp=np.dot( tmp,  R3(kappa) )
-	tmp=np.dot( tmp,  R2(-alpha))
-	tmp=np.dot( tmp,  R2(beta)  )
-	tmp=np.dot( tmp,  R3(phi)   )
-	tmp=np.dot( tmp,  R2(-beta) )
-	return   tmp
+	tmp = Rotation(omega + omega_offset,2)
+	tmp = np.dot(tmp, Rotation(alpha,1))
+	tmp = np.dot(tmp, Rotation(kappa,2))
+	tmp = np.dot(tmp, Rotation(-alpha,1))
+	tmp = np.dot(tmp, Rotation(beta,1))
+	tmp = np.dot(tmp, Rotation(phi,2))
+	tmp = np.dot(tmp, Rotation(-beta,1))
+	return tmp
 
 	r = R3(omega + omega_offset).dot(R2(alpha)).dot(R3(kappa)).dot(R2(-alpha)).dot(R2(beta)).dot(R3(phi)).dot(R2(-beta))
 	return r
@@ -97,56 +82,32 @@ def DET(theta, theta_offset, d1,d2):
 	Rotation matrix for the detector 
 	theta is the nominal theta value and d1,D2 are the tilts of detector
 	"""
-	det = R3(theta + theta_offset).dot(R2(d2)).dot(R1(d1))
-
+	det = Rotation(theta + theta_offset,2).dot(Rotation(d2,1)).dot(Rotation(d1,0))
 	return det
 #--------------------------------------------------------------------------------------------------------	
 
 def U(r1,r2,r3):
 	""" Secondary rotation of reciprocal space (to orient the crystallographic axis in a special way) """
-	u = R3(r3).dot(R2(r2)).dot(R1(r1))
+	u = Rotation(r3,2).dot(Rotation(r2,1)).dot(Rotation(r1,0))
 	return u
 
 #--------------------------------------------------------------------------------------------------------
 # Projection and Orientation
 #--------------------------------------------------------------------------------------------------------
 
-def B(b2):
-	""" Beam tilt matrix """
-	b = R2(b2)
-	return b
-
-#--------------------------------------------------------------------------------------------------------
-
 def P0(dist,b2):
 	""" Beam tilt matrix """
-	BM = R2(b2)
+	B = Rotation(b2,1)
 	""" Primary projection of pixel coordinates (X,Y) to the reciprocal space. """
 	# p0 = BM.dot(np.matrix([[dist],[0],[0]]))
-
-	p0 = np.dot(BM,   [ dist, 0,0 ] ) 
+	p0 = np.dot(B,   [ dist, 0,0 ] ) 
 	return p0
 	
 #--------------------------------------------------------------------------------------------------------
 
-def X0(X,vertical_size):
-	x0 = X  + vertical_size/2.
-	return x0
-	
-def Y0(Y,horizontal_size):
-	y0 =  Y + horizontal_size/2.
-	return y0
-
-#--------------------------------------------------------------------------------------------------------
-
 def P(theta, theta_offset,d1,d2,dist,x,y):
-	res = np.dot( 
-		DET(theta, theta_offset, d1,d2) ,
-		[-dist , x , y]
-		)
+	res = np.dot(DET(theta, theta_offset, d1,d2) , [-dist , x , y])
 	return res
-
-	# return DET(theta, theta_offset, d1,d2).dot(np.matrix([[-dist],[x],[y]]))
 
 #--------------------------------------------------------------------------------------------------------
 
@@ -325,14 +286,9 @@ def main():
 	r1 = -88.788
 	r2 = 2.257
 	r3 = 69.629
-	
-	Proj = Projection(theta, theta_offset,d1,d2,params.dist,params.lmbda,params.beam_tilt_angle,params.pixel_size,MD,params.det_origin_X,params.det_origin_Y,dim1,dim2,omega,phi,kappa,alpha,beta,omega_offset,r1,r2,r3)
-	
+		
 	Q0 = np.zeros((dim2,dim1,3),dtype = np.float32) 
-	MD_pix_tmp = pixel_size*MD
-
-
-
+	MD_pix_tmp = params.pixel_size*MD
 
 	Q_for_x = np.zeros((dim1 ,3),dtype = np.float32) 
 	X_array_tmp = np.zeros( (dim1,2  ))
@@ -342,27 +298,24 @@ def main():
 	Y_array_tmp = np.zeros( (dim2,2  ))
 	Y_array_tmp [:,1] = np.arange(dim2) - (params.det_origin_Y +dim2/2.0 )
 
-	X_array_tmp=np.tensordot( MD_pix_tmp ,  X_array_tmp , [1],[1]   )
-	Y_array_tmp=np.tensordot( MD_pix_tmp ,  Y_array_tmp , [1],[1]   )
+	X_array_tmp=np.tensordot( MD_pix_tmp ,  X_array_tmp , axes=([1],[1])   )
+	Y_array_tmp=np.tensordot( MD_pix_tmp ,  Y_array_tmp , axes=([1],[1])   )
 	
-
 	YX_array_tmp =  Y_array_tmp[:,None,:] + X_array_tmp[None,:,:] 
 	
-
+	print YX_array_tmp.shape
 	P_total_tmp = np.zeros((dim2, dim1 ,3),dtype = np.float32)
- 
 	P_total_tmp[:,:, 1:3] =  YX_array_tmp 
-
 	P_total_tmp[:,:,  0 ] =  -DIST
-	
 	P_total_tmp=np.tensordot( DET  , P_total_tmp  , [1],[1]   )
-
-	
 	P_total_tmp_modulus = np.sqrt( np.sum(  P_total_tmp   , axis=-1))
 	
-	Q0 = ((  P_total_tmp.T/    P_total_tmp_modulus.T   ).T  - result_of_B_dot_DIST)/LAMBDA
+	
+	Q0 = ((P_total_tmp.T/P_total_tmp_modulus.T).T - p0/params.dist)/params.lmbda
+	
+	print Q0
 
-
+	"""
 
 	X-X0(self.det_origin_X,self.dim1)
 
@@ -370,7 +323,7 @@ def main():
 	x,y = np.array((*np.array([[X-X0(self.det_origin_X,self.dim1)],[Y-Y0(self.det_origin_Y,self.dim2)]])).flatten())[0]
 	p = P(self.theta, self.theta_offset,self.d1,self.d2,self.dist,x,y)
 	q0 = (p/norm(p)+P0(self.dist,self.beam_tilt_angle)/self.dist)/self.lmbda
-
+	
 
 
 		for Y in range(dim2):
@@ -426,7 +379,7 @@ def main():
 	print '%d values'%ent	
 	print A
 	
-	
+	"""
 		
 	sys.exit()
 
