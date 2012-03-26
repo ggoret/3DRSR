@@ -110,56 +110,6 @@ def P(theta, theta_offset,d1,d2,dist,x,y):
 	return res
 
 #--------------------------------------------------------------------------------------------------------
-
-class Projection(object):
-	def __init__(self,theta, theta_offset,d1,d2,dist,lmbda,beam_tilt_angle,pixel_size,MD,det_origin_X,det_origin_Y,dim1,dim2,omega,phi,kappa,alpha,beta,omega_offset,r1,r2,r3):
-		self.theta = theta
-		self.theta_offset = theta_offset
-		self.d1 = d1
-		self.d2 = d2
-		self.dist = dist
-		
-		self.beam_tilt_angle = beam_tilt_angle
-		self.pixel_size = pixel_size
-		self.MD = MD
-		self.det_origin_X = det_origin_X
-		self.det_origin_Y = det_origin_Y
-		self.dim1 = dim1
-		self.dim2 = dim2
-		
-		self.omega = omega
-		self.omega_offset = omega_offset
-		self.phi = phi
-		self.kappa = kappa
-		self.alpha = alpha
-		self.beta = beta
-		self.lmbda = lmbda 
-		
-		self.r1 = r1
-		self.r2 = r2
-		self.r3 = r3
-		
-	def set_theta(self,theta):
-		self.theta = theta
-
-	
-	def Q0(self,X,Y):
-		x,y = np.array((self.pixel_size*self.MD*np.array([[X-X0(self.det_origin_X,self.dim1)],[Y-Y0(self.det_origin_Y,self.dim2)]])).flatten())[0]
-		p = P(self.theta, self.theta_offset,self.d1,self.d2,self.dist,x,y)
-		q0 = (p/norm(p)+P0(self.dist,self.beam_tilt_angle)/self.dist)/self.lmbda
-		return q0
-
-		
-	def Q(self,X,Y):
-		q = R(self.omega,self.phi,self.kappa,self.alpha,self.beta,self.omega_offset).transpose().dot(self.Q0(X,Y))
-		return q
-
-		
-	def Qfin(self,X,Y):
-		qfin = U(self.r1,self.r2,self.r3).transpose().dot(self.Q(X,Y))
-		return qfin
-		
-#--------------------------------------------------------------------------------------------------------
 # Corrections
 #--------------------------------------------------------------------------------------------------------
 
@@ -172,48 +122,6 @@ MD5 = np.array([[0,-1],[1,0] ],"d")
 MD6 = np.array([[0,1],[-1,0] ],"d")
 MD7 = np.array([[0,-1],[-1,0]],"d")
 
-#--------------------------------------------------------------------------------------------------------
-
-class Correction(object):
-	def __init__(self,theta, theta_offset,d1,d2,dist,lmbda,beam_tilt_angle,pixel_size,MD,det_origin_X,det_origin_Y,dim1,dim2,pol_degree,n):
-		self.theta = theta
-		self.theta_offset = theta_offset
-		self.d1 = d1
-		self.d2 = d2
-		self.dist = dist
-		self.lmbda = lmbda
-		self.beam_tilt_angle = beam_tilt_angle
-		self.pixel_size = pixel_size
-		self.MD = MD
-		self.det_origin_X = det_origin_X
-		self.det_origin_Y = det_origin_Y
-		self.dim1 = dim1
-		self.dim2 = dim2
-		self.pol_degree = pol_degree # degree of polarisation
-		self.n = n # normal to the polarisation plane
-	
-	def set_theta(self,theta):
-		self.theta = theta
-
-	
-	def POL(self,X,Y,n):
-		"""
-		Polarisation correction
-		n is the normal to the polarization plane (vector)
-		"""
-		x,y = np.array((self.pixel_size*self.MD*np.matrix([[X-X0(self.det_origin_X,self.dim1)],[Y-Y0(self.det_origin_Y,self.dim2)]])).flatten())[0]
-		p = P(self.theta, self.theta_offset,self.d1,self.d2,self.dist,x,y) # p == p(X,Y)
-		p0 = P0(self.dist,self.beam_tilt_angle)
-		
-		pol = self.pol_degree *((1-float(((np.cross(p0,self.n,axis=0).transpose()*p))/norm(np.cross(p0,n,axis=0))*norm(p))**2)+(1-self.pol_degree)*(1-((float(n.transpose()*p)/norm(p))**2)))
-		return pol
-
-
-	def C3(self,X,Y):
-		x,y = np.array((self.pixel_size*self.MD*np.matrix([[X-X0(self.det_origin_X,self.dim1)],[Y-Y0(self.det_origin_Y,self.dim2)]])).flatten())[0]
-		c3 = self.dist**3/(self.dist**2+x**2+y**2)**(3/2)
-		return c3
-		
 #--------------------------------------------------------------------------------------------------------
 # Xcalibur parameter Class
 #--------------------------------------------------------------------------------------------------------
@@ -246,7 +154,7 @@ def mag_max(l):
 	"""
 	maxi = 0
 	for c in l:
-		mag = norm(np.matrix(c))
+		mag = norm(c)
 		if mag > maxi:
 			maxi = mag
 	return maxi
@@ -290,62 +198,54 @@ def main():
 	Q0 = np.zeros((dim2,dim1,3),dtype = np.float32) 
 	MD_pix_tmp = params.pixel_size*MD
 
-	Q_for_x = np.zeros((dim1 ,3),dtype = np.float32) 
 	X_array_tmp = np.zeros( (dim1,2  ))
 	X_array_tmp [:,0] = np.arange(dim1) - (params.det_origin_X +dim1/2.0 )
 
-	Q_for_y = np.zeros((dim2 ,3),dtype = np.float32) 
 	Y_array_tmp = np.zeros( (dim2,2  ))
 	Y_array_tmp [:,1] = np.arange(dim2) - (params.det_origin_Y +dim2/2.0 )
 
-	X_array_tmp=np.tensordot( MD_pix_tmp ,  X_array_tmp , axes=([1],[1])   )
-	Y_array_tmp=np.tensordot( MD_pix_tmp ,  Y_array_tmp , axes=([1],[1])   )
+	X_array_tmp=np.tensordot(   X_array_tmp , MD_pix_tmp ,axes=([1],[1])   )
+	Y_array_tmp=np.tensordot(   Y_array_tmp ,MD_pix_tmp , axes=([1],[1])   )
 	
 	YX_array_tmp =  Y_array_tmp[:,None,:] + X_array_tmp[None,:,:] 
 	
-	print YX_array_tmp.shape
 	P_total_tmp = np.zeros((dim2, dim1 ,3),dtype = np.float32)
-	P_total_tmp[:,:, 1:3] =  YX_array_tmp 
-	P_total_tmp[:,:,  0 ] =  -DIST
-	P_total_tmp=np.tensordot( DET  , P_total_tmp  , [1],[1]   )
-	P_total_tmp_modulus = np.sqrt( np.sum(  P_total_tmp   , axis=-1))
+	P_total_tmp[:,:,1:3] = YX_array_tmp 
+	P_total_tmp[:,:, 0 ] = -params.dist
+	
+	P_total_tmp=np.tensordot(P_total_tmp, DET(theta, theta_offset, d1,d2),   axes=([2],[1]))
+
+	P_total_tmp_modulus = norm( P_total_tmp)
 	
 	
-	Q0 = ((P_total_tmp.T/P_total_tmp_modulus.T).T - p0/params.dist)/params.lmbda
 	
-	print Q0
-
-	"""
-
-	X-X0(self.det_origin_X,self.dim1)
-
-
-	x,y = np.array((*np.array([[X-X0(self.det_origin_X,self.dim1)],[Y-Y0(self.det_origin_Y,self.dim2)]])).flatten())[0]
-	p = P(self.theta, self.theta_offset,self.d1,self.d2,self.dist,x,y)
-	q0 = (p/norm(p)+P0(self.dist,self.beam_tilt_angle)/self.dist)/self.lmbda
+	Q0 = ((P_total_tmp/P_total_tmp_modulus) - p0/params.dist)/params.lmbda
 	
-
-
-		for Y in range(dim2):
-			Q0[X,Y,:] = Proj.Q0(X,Y).flatten()
-
-
-	for X in range(dim1):
-		for Y in range(dim2):
-			Q0[X,Y,:] = Proj.Q0(X,Y).flatten()
-	print 'Q0(X,Y) :\n',Q0
+	Prim_Rot_of_RS = R(omega,phi,kappa,alpha,beta,omega_offset)
 	
+	Snd_Rot_of_RS = U(r1,r2,r3)
+	
+	Q = np.tensordot (  Q0 , Prim_Rot_of_RS.T , axes=([2],[1]))
+	
+	Qfin = np.tensordot (Q , Snd_Rot_of_RS.T , axes=([2],[1]))
+	
+	print Qfin.shape
+
 	# Construction 3D intensity distribution
 	# --------------------------------------
 	
 	pol_degree = 1. # polarisation degree
-	n = np.matrix([[0],[0],[1]]) # normal to polarisation plane
+	normal_to_pol = np.array([0,0,1]) # normal to polarisation plane
+
+	POL_tmp = pol_degree*(1-(np.tensordot(np.cross(p0,normal_to_pol,axis=0),P_total_tmp,axes=([0],[2]))/norm(np.cross(p0,normal_to_pol,axis=0))*P_total_tmp_modulus)**2)	
 	
-	Corr = Correction(theta, theta_offset,d1,d2,params.dist,params.lmbda,params.beam_tilt_angle,params.pixel_size,MD,params.det_origin_X,params.det_origin_Y,dim1,dim2,pol_degree,n)
+	POL_tmp += 	(1-pol_degree)*(1-(np.tensordot(normal_to_pol,P_total_tmp,axes=([0],[2]))/P_total_tmp_modulus)**2)
+	
+	
+	C3 =  params.dist**3/(params.dist**2+np.sum (YX_array_tmp*YX_array_tmp, axis = -1 ) )**(3/2)
 	
 	# Estimation of the cube size :
-	corners  = [Q0[0,0,:],Q0[0,dim2-1,:],Q0[dim1-1,0,:],Q0[dim1-1,dim2-1,:]]
-	
+	corners  = np.array([Q0[0,0,:],Q0[0,dim2-1,:],Q0[dim1-1,0,:],Q0[dim1-1,dim2-1,:]])
 	Qmax = mag_max(corners) # maximal magnitude for reciprocal vector corresponding to the corners pixels
 	
 	print 'Qmax : ', Qmax
@@ -354,16 +254,32 @@ def main():
 	
 	print 'CUBE DIMs :', cube_dim
 	
-	A = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
-	B = np.zeros((cube_dim,cube_dim,cube_dim), dtype = np.int32)
-	
 	dqx = dqy = dqz = cube_dim//2
 		
-	q0x, q0y, q0z = 0,0,0	
+	q0x = q0y = q0z = cube_dim//2
 	
 	print 'RECIPROCAL SPACE CENTER :', q0x, q0y, q0z
 	print '-----------------------------'
 	
+	I_array = np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,0] - q0x)/dqx)) 
+	J_array = np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,1] - q0y)/dqy))
+	K_array = np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,2] - q0z)/dqz))
+	
+	
+	IJK_array = np.zeros((dim1,dim1,3), dtype = np.int32)
+	
+	IJK_array[:,:,0] = I_array
+	IJK_array[:,:,1] = J_array
+	IJK_array[:,:,2] = K_array
+	
+	print IJK_array.shape  
+	
+	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
+	
+	print Volume[???] =  (data/np.dot(POL_tmp,C3)).shape
+	
+	
+	"""
 	ent = 0
 	for X in range(dim1):
 		for Y in range(dim2):
@@ -378,8 +294,8 @@ def main():
 	print '3D Intensity Distribution :'	
 	print '%d values'%ent	
 	print A
-	
 	"""
+	
 		
 	sys.exit()
 
