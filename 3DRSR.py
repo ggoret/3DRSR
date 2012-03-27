@@ -237,7 +237,10 @@ def main():
 	pol_degree = 1. # polarisation degree
 	normal_to_pol = np.array([0,0,1]) # normal to polarisation plane
 
-	POL_tmp = pol_degree*(1-(np.tensordot(np.cross(p0,normal_to_pol,axis=0),P_total_tmp,axes=([0],[2]))/norm(np.cross(p0,normal_to_pol,axis=0))*P_total_tmp_modulus)**2)	
+	P0xn = np.cross(p0,normal_to_pol,axis=0)
+	NormP0xn =  norm(P0xn)
+	# np.tensordot(P0xn,P_total_tmp,axes=([0],[2]) 
+	POL_tmp = pol_degree*(1-( (P0xn*P_total_tmp).sum(axes=-1))/(NormP0xn*P_total_tmp_modulus))**2)	
 	
 	POL_tmp += 	(1-pol_degree)*(1-(np.tensordot(normal_to_pol,P_total_tmp,axes=([0],[2]))/P_total_tmp_modulus)**2)
 	
@@ -251,7 +254,9 @@ def main():
 	print 'Qmax : ', Qmax
 	
 	cube_dim = sup_pow_2(2*Qmax) + 1 # closest power of 2 > 2Qmax + 1 (to be sure that we have a symetric center)
-	
+
+	cube_dim=513
+
 	print 'CUBE DIMs :', cube_dim
 	
 	dqx = dqy = dqz = cube_dim//2
