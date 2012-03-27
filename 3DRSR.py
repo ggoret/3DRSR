@@ -6,7 +6,8 @@
 # gael.goret@esrf.fr, mirone@esrf.fr
 ###################################################################################
 
-import sys
+import fabio
+import sys, time
 import numpy as np
 from numpy.linalg import norm
 
@@ -165,12 +166,17 @@ def mag_max(l):
 
 def main():
 	display_logo()
-	
-	dim1 = 32
-	dim2 = 32
-
-	data = np.ones((dim1,dim2),dtype = np.int32)*100000
-
+	time0 = time.time()
+	print 'Reading File ...'
+	img = fabio.open('feo1_1_00001.cbf')
+	time1 = time.time()
+	print '-> t = %.2f s'%(time1-time0)
+	#dim1,dim2 = 64,64
+	dim1,dim2 = img.dim1,img.dim2
+	print 'Image Dimension :',dim1,dim2
+	#data = np.ones((dim1,dim2),dtype = np.int32)*100000
+	data = img.data
+	print 'Setting Parameters ...'
 	params = XCalibur_parameters()
 
 	#PREPARATION STEP 1
@@ -194,7 +200,8 @@ def main():
 	r1 = -88.788
 	r2 = 2.257
 	r3 = 69.629
-		
+	time2 = time.time()
+	print 'Computation of Initial Projection Coordinates Q0'
 	Q0 = np.zeros((dim2,dim1,3),dtype = np.float32) 
 	MD_pix_tmp = params.pixel_size*MD
 
@@ -221,55 +228,86 @@ def main():
 	
 	Q0 = ((P_total_tmp/P_total_tmp_modulus) - p0/params.dist)/params.lmbda
 	
-	Prim_Rot_of_RS = R(omega,phi,kappa,alpha,beta,omega_offset)
+	time3 = time.time()
+	print '-> t = %.2f s'%(time3-time2)	
 	
+	
+	Prim_Rot_of_RS = R(omega,phi,kappa,alpha,beta,omega_offset)
 	Snd_Rot_of_RS = U(r1,r2,r3)
 	
+	time4 = time.time()
+	print 'Primary Rotation : Q0 -> Q'
 	Q = np.tensordot (  Q0 , Prim_Rot_of_RS.T , axes=([2],[1]))
-	
+	time5 = time.time()
+	print '-> t = %.2f s'%(time5-time4)
+	print 'Secondary Rotation : Q -> Qfin'
 	Qfin = np.tensordot (Q , Snd_Rot_of_RS.T , axes=([2],[1]))
-	
-	print Qfin.shape
+	time6 = time.time()
+	print '-> t = %.2f s'%(time6-time5)
 
-	# Construction 3D intensity distribution
 	# --------------------------------------
 	
 	pol_degree = 1. # polarisation degree
 	normal_to_pol = np.array([0,0,1]) # normal to polarisation plane
-
-	P0xn = np.cross(p0,normal_to_pol,axis=0)
-	NormP0xn =  norm(P0xn)
-	# np.tensordot(P0xn,P_total_tmp,axes=([0],[2]) 
-	POL_tmp = pol_degree*(1-( (P0xn*P_total_tmp).sum(axes=-1))/(NormP0xn*P_total_tmp_modulus))**2)	
 	
-	POL_tmp += 	(1-pol_degree)*(1-(np.tensordot(normal_to_pol,P_total_tmp,axes=([0],[2]))/P_total_tmp_modulus)**2)
+	#OPTIONS
+	cpt_pol = True 
+	cpt_c3 = True
 	
+	if cpt_pol :
+		print 'Computation of Polarisation Correction ...'
+		P0xn = np.cross(p0,normal_to_pol,axis=0)
+		NormP0xn =  norm(P0xn)
+		# np.tensordot(P0xn,P_total_tmp,axes=([0],[2]) 
+		POL_tmp = pol_degree*(1-( (P0xn*P_total_tmp).sum(axis=-1))/(NormP0xn*P_total_tmp_modulus))**2	
 	
-	C3 =  params.dist**3/(params.dist**2+np.sum (YX_array_tmp*YX_array_tmp, axis = -1 ) )**(3/2)
+		POL_tmp += 	(1-pol_degree)*(1-(np.tensordot(normal_to_pol,P_total_tmp,axes=([0],[2]))/P_total_tmp_modulus)**2)
+		print 'POL_tmp.shape',POL_tmp.shape
+	else :
+		print 'Computation of Polarisation Correction : Canceled'
+		POL_tmp = np.ones((dim2,dim1),dtype = np.float32)
 	
-	# Estimation of the cube size :
-	corners  = np.array([Q0[0,0,:],Q0[0,dim2-1,:],Q0[dim1-1,0,:],Q0[dim1-1,dim2-1,:]])
-	Qmax = mag_max(corners) # maximal magnitude for reciprocal vector corresponding to the corners pixels
+	time7 = time.time()
+	print '-> t = %.2f s'%(time7-time6)	
 	
-	print 'Qmax : ', Qmax
-	
-	cube_dim = sup_pow_2(2*Qmax) + 1 # closest power of 2 > 2Qmax + 1 (to be sure that we have a symetric center)
-
-	cube_dim=513
-
-	print 'CUBE DIMs :', cube_dim
-	
-	dqx = dqy = dqz = cube_dim//2
+	if cpt_c3:
+		print 'Computation of Flux Density and Parallax Correction ...'
+		C3 =  params.dist**3/(params.dist**2+np.sum (YX_array_tmp*YX_array_tmp, axis = -1 ) )**(3/2)
+		print 'C3.shape',C3.shape
+	else:
+		print 'Computation of Flux Density and Parallax Correction : Canceled'
+		C3 = np.ones((dim2,dim1),dtype = np.float32)
 		
-	q0x = q0y = q0z = cube_dim//2
+	time8 = time.time()
+	print '-> t = %.2f s'%(time8-time7)
+	print 'Estimation of Qmax ...'
+	# Estimation of Qmax
+	corners  = np.array([Q0[0,0,:],Q0[0,dim1-1,:],Q0[dim2-1,0,:],Q0[dim2-1,dim1-1,:]])
+	Qmax = mag_max(corners) # maximal magnitude for reciprocal vector corresponding to the corners pixels
+	print '-----------------------------'
+	print 'Qmax = ', Qmax
 	
-	print 'RECIPROCAL SPACE CENTER :', q0x, q0y, q0z
+	#cube_dim = sup_pow_2(2*Qmax) + 1 # closest power of 2 > 2Qmax + 1 (to be sure that we have a symetric center)
+
+	cube_dim=128 + 1
+
+	print 'CUBE DIMs =', cube_dim
+	
+	dqx = dqy = dqz = Qmax
+		
+	q0x = q0y = q0z = 0
+	
+	print 'RECIPROCAL SPACE CENTER  =', q0x, q0y, q0z
 	print '-----------------------------'
 	
+	print 'Computation of 3D Volume Indices ...'
+	time9 = time.time()
 	I_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,0] - q0x)/dqx))).astype(np.int32) 
 	J_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,1] - q0y)/dqy))).astype(np.int32)
 	K_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,2] - q0z)/dqz))).astype(np.int32)
 	
+	time10 = time.time()
+	print '-> t = %.2f s'%(time10-time9)
 	print I_array
 	print J_array
 	print K_array
@@ -277,10 +315,18 @@ def main():
 	
 	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
 	
-	Volume[I_array,J_array,K_array] =  (data/np.dot(POL_tmp,C3))
+	print 'Filling up the Volume with Corrected Intensity ...'
+	Intensity = (data/np.tensordot(POL_tmp,C3,axes=([1],[1])))
+	
+	print 'Intensity.shape',Intensity.shape
+	print 'Volume.shape',Volume.shape
+	Volume[I_array,J_array,K_array] = Intensity 
+	
+	time11 = time.time()
+	print '-> t = %.2f s'%(time11-time10)
 	
 	print '3D Intensity Distribution :'
-	print Volume
+	print np.where(Volume>0)
 		
 	sys.exit()
 
