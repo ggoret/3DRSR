@@ -261,41 +261,21 @@ def main():
 	print 'RECIPROCAL SPACE CENTER :', q0x, q0y, q0z
 	print '-----------------------------'
 	
-	I_array = np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,0] - q0x)/dqx)) 
-	J_array = np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,1] - q0y)/dqy))
-	K_array = np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,2] - q0z)/dqz))
+	I_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,0] - q0x)/dqx))).astype(np.int32) 
+	J_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,1] - q0y)/dqy))).astype(np.int32)
+	K_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,2] - q0z)/dqz))).astype(np.int32)
 	
-	
-	IJK_array = np.zeros((dim1,dim1,3), dtype = np.int32)
-	
-	IJK_array[:,:,0] = I_array
-	IJK_array[:,:,1] = J_array
-	IJK_array[:,:,2] = K_array
-	
-	print IJK_array.shape  
+	print I_array
+	print J_array
+	print K_array
+
 	
 	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
 	
-	print Volume[???] =  (data/np.dot(POL_tmp,C3)).shape
+	Volume[I_array,J_array,K_array] =  (data/np.dot(POL_tmp,C3))
 	
-	
-	"""
-	ent = 0
-	for X in range(dim1):
-		for Y in range(dim2):
-			qx,qy,qz = np.array(Proj.Qfin(X,Y).flatten())[0]
-			#print qx,qy,qz
-			print qx,qy,qz
-			i ,j ,k = np.floor(np.array([qx+dqx, qy+dqy, qz+dqz]))
-			#print i,j,k
-			if i <= dqx and j <= dqy and k <= dqz:
-				ent +=1
-				A[i,j,k] = data[X,Y]/(Corr.POL(X,Y,n)*Corr.C3(X,Y))
-	print '3D Intensity Distribution :'	
-	print '%d values'%ent	
-	print A
-	"""
-	
+	print '3D Intensity Distribution :'
+	print Volume
 		
 	sys.exit()
 
