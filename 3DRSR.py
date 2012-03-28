@@ -175,9 +175,9 @@ def main():
 	data = img.data
 	dim1,dim2 = img.dim1,img.dim2
 	"""
-	dim1,dim2 = 1024,1200
-	print 'Image Dimension :',dim1,dim2
-	data = np.ones((dim1,dim2),dtype = np.int32)*10000
+	dim1,dim2 = 1200,1024
+	print 'Image Dimension :',dim2,dim1
+	data = np.ones((dim2,dim1),dtype = np.int32)*10000
 	
 
 	print 'Setting Parameters ...'
@@ -248,13 +248,13 @@ def main():
 	Qfin = np.tensordot (Q , Snd_Rot_of_RS.T , axes=([2],[1]))
 	time6 = time.time()
 	print '-> t = %.2f s'%(time6-time5)
-
-	# --------------------------------------
+	print Qfin.shape
+	print '--------------------------------------'
 	
 	pol_degree = 1. # polarisation degree
 	normal_to_pol = np.array([0,0,1]) # normal to polarisation plane
 	
-	#OPTIONS
+	#CORRECTION OPTIONS
 	cpt_pol = False 
 	cpt_c3 = False
 	
@@ -305,16 +305,22 @@ def main():
 	print '-----------------------------'
 	
 	print 'Computation of 3D Volume Indices ...'
-	
-	
-	Qxfin = Qfin[:,:,0][np.where((Qfin[:,:,0]-q0x) <= dqx)].reshape(dim1,dim2)
-	Qyfin = Qfin[:,:,1][np.where((Qfin[:,:,1]-q0y) <= dqy)].reshape(dim1,dim2)
-	Qzfin = Qfin[:,:,2][np.where((Qfin[:,:,2]-q0z) <= dqz)].reshape(dim1,dim2)
+	QxFilter = np.where((Qfin[:,:,0]-q0x) <= dqx)
+	QyFilter = np.where((Qfin[:,:,1]-q0y) <= dqy)
+	QzFilter = np.where((Qfin[:,:,2]-q0z) <= dqz)
 
+	Qxfin = np.zeros((dim2,dim1),dtype = np.float32)
+	Qyfin = np.zeros((dim2,dim1),dtype = np.float32)
+	Qzfin = np.zeros((dim2,dim1),dtype = np.float32)
+	
+	Qxfin[QxFilter] = Qfin[QxFilter[0],QxFilter[1],0]
+	Qyfin[QyFilter] = Qfin[QyFilter[0],QyFilter[1],1]
+	Qzfin[QzFilter] = Qfin[QzFilter[0],QzFilter[1],2]
+	
 	time9 = time.time()
-	I_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qxfin - q0x)/dqx))).astype(np.int32) 
-	J_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qyfin - q0y)/dqy))).astype(np.int32)
-	K_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qzfin - q0z)/dqz))).astype(np.int32)
+	I_array = ( np.floor ( np.sqrt(cube_dim-1) * (1 + (Qxfin - q0x)/dqx) ) ).astype(np.int32) 
+	J_array = ( np.floor ( np.sqrt(cube_dim-1) * (1 + (Qyfin - q0y)/dqy) ) ).astype(np.int32)
+	K_array = ( np.floor ( np.sqrt(cube_dim-1) * (1 + (Qzfin - q0z)/dqz) ) ).astype(np.int32)
 	
 	time10 = time.time()
 	print '-> t = %.2f s'%(time10-time9)
@@ -330,7 +336,7 @@ def main():
 	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
 	
 	print 'Filling up the Volume with Corrected Intensity ...'
-	#Intensity = (data/np.tensordot(POL_tmp,C3,axes=([1],[1])))
+	#Intensity = (data/np.tensordot(POL_tmp,C3,axes=([1],[1])))#Wrong
 	Intensity = data
 	print 'Intensity.shape',Intensity.shape
 	print 'Volume.shape',Volume.shape
