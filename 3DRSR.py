@@ -168,14 +168,18 @@ def main():
 	display_logo()
 	time0 = time.time()
 	print 'Reading File ...'
+	"""
 	img = fabio.open('feo1_1_00001.cbf')
 	time1 = time.time()
 	print '-> t = %.2f s'%(time1-time0)
-	#dim1,dim2 = 64,64
-	dim1,dim2 = img.dim1,img.dim2
-	print 'Image Dimension :',dim1,dim2
-	#data = np.ones((dim1,dim2),dtype = np.int32)*100000
 	data = img.data
+	dim1,dim2 = img.dim1,img.dim2
+	"""
+	dim1,dim2 = 1024,1200
+	print 'Image Dimension :',dim1,dim2
+	data = np.ones((dim1,dim2),dtype = np.int32)*10000
+	
+
 	print 'Setting Parameters ...'
 	params = XCalibur_parameters()
 
@@ -251,8 +255,8 @@ def main():
 	normal_to_pol = np.array([0,0,1]) # normal to polarisation plane
 	
 	#OPTIONS
-	cpt_pol = True 
-	cpt_c3 = True
+	cpt_pol = False 
+	cpt_c3 = False
 	
 	if cpt_pol :
 		print 'Computation of Polarisation Correction ...'
@@ -265,7 +269,7 @@ def main():
 		print 'POL_tmp.shape',POL_tmp.shape
 	else :
 		print 'Computation of Polarisation Correction : Canceled'
-		POL_tmp = np.ones((dim2,dim1),dtype = np.float32)
+		#POL_tmp = np.ones((dim2,dim1),dtype = np.float32)
 	
 	time7 = time.time()
 	print '-> t = %.2f s'%(time7-time6)	
@@ -276,7 +280,7 @@ def main():
 		print 'C3.shape',C3.shape
 	else:
 		print 'Computation of Flux Density and Parallax Correction : Canceled'
-		C3 = np.ones((dim2,dim1),dtype = np.float32)
+		#C3 = np.ones((dim2,dim1),dtype = np.float32)
 		
 	time8 = time.time()
 	print '-> t = %.2f s'%(time8-time7)
@@ -301,23 +305,33 @@ def main():
 	print '-----------------------------'
 	
 	print 'Computation of 3D Volume Indices ...'
+	
+	
+	Qxfin = Qfin[:,:,0][np.where((Qfin[:,:,0]-q0x) <= dqx)].reshape(dim1,dim2)
+	Qyfin = Qfin[:,:,1][np.where((Qfin[:,:,1]-q0y) <= dqy)].reshape(dim1,dim2)
+	Qzfin = Qfin[:,:,2][np.where((Qfin[:,:,2]-q0z) <= dqz)].reshape(dim1,dim2)
+
 	time9 = time.time()
-	I_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,0] - q0x)/dqx))).astype(np.int32) 
-	J_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,1] - q0y)/dqy))).astype(np.int32)
-	K_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qfin[:,:,2] - q0z)/dqz))).astype(np.int32)
+	I_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qxfin - q0x)/dqx))).astype(np.int32) 
+	J_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qyfin - q0y)/dqy))).astype(np.int32)
+	K_array = (np.floor ( np.sqrt(cube_dim) *(1 + (Qzfin - q0z)/dqz))).astype(np.int32)
 	
 	time10 = time.time()
 	print '-> t = %.2f s'%(time10-time9)
+	
+	print '-------------------'
 	print I_array
+	print '-------------------'
 	print J_array
+	print '-------------------'
 	print K_array
-
+	print '-------------------'
 	
 	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
 	
 	print 'Filling up the Volume with Corrected Intensity ...'
-	Intensity = (data/np.tensordot(POL_tmp,C3,axes=([1],[1])))
-	
+	#Intensity = (data/np.tensordot(POL_tmp,C3,axes=([1],[1])))
+	Intensity = data
 	print 'Intensity.shape',Intensity.shape
 	print 'Volume.shape',Volume.shape
 	Volume[I_array,J_array,K_array] = Intensity 
