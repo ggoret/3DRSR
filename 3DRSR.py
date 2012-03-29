@@ -226,11 +226,13 @@ def main():
 	
 	P_total_tmp=np.tensordot(P_total_tmp, DET(theta, theta_offset, d1,d2),   axes=([2],[1]))
 
-	P_total_tmp_modulus = norm( P_total_tmp)
+	P_total_tmp_modulus = norm(P_total_tmp)
 	
 	
 	
-	Q0 = ((P_total_tmp/P_total_tmp_modulus) - p0/params.dist)/params.lmbda
+	Q0 = (P_total_tmp/P_total_tmp_modulus - p0/params.dist)/params.lmbda
+	
+	print Q0
 	
 	time3 = time.time()
 	print '-> t = %.2f s'%(time3-time2)	
@@ -293,10 +295,10 @@ def main():
 	
 	#cube_dim = sup_pow_2(2*Qmax) + 1 # closest power of 2 > 2Qmax + 1 (to be sure that we have a symetric center)
 
-	cube_dim=128 + 1
+	cube_dim=256 + 1
 
 	print 'CUBE DIMs =', cube_dim
-	
+
 	dqx = dqy = dqz = Qmax
 		
 	q0x = q0y = q0z = 0
@@ -338,7 +340,7 @@ def main():
 	print 'Filling up the Volume with Corrected Intensity ...'
 	#Intensity = (data/np.tensordot(POL_tmp,C3,axes=([1],[1])))#Wrong
 	Intensity = data
-	print 'Intensity.shape',Intensity.shape
+	print 'Data.shape',Intensity.shape
 	print 'Volume.shape',Volume.shape
 	Volume[I_array,J_array,K_array] = Intensity 
 	
