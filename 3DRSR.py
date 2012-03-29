@@ -168,7 +168,7 @@ def main():
 	display_logo()
 	time0 = time.time()
 	print 'Reading File ...'
-	"""
+	
 	img = fabio.open('feo1_1_00001.cbf')
 	time1 = time.time()
 	print '-> t = %.2f s'%(time1-time0)
@@ -178,7 +178,7 @@ def main():
 	dim1,dim2 = 1200,1024
 	print 'Image Dimension :',dim2,dim1
 	data = np.ones((dim2,dim1),dtype = np.int32)*10000
-	
+	"""
 
 	print 'Setting Parameters ...'
 	params = XCalibur_parameters()
@@ -226,11 +226,9 @@ def main():
 	
 	P_total_tmp=np.tensordot(P_total_tmp, DET(theta, theta_offset, d1,d2),   axes=([2],[1]))
 
-	P_total_tmp_modulus = norm(P_total_tmp)
-	
-	
-	
-	Q0 = (P_total_tmp/P_total_tmp_modulus - p0/params.dist)/params.lmbda
+	P_total_tmp_modulus = np.sqrt(np.sum(P_total_tmp*P_total_tmp,axis=-1))
+	Q0_tmp = P_total_tmp.T/P_total_tmp_modulus.T
+	Q0 = (Q0_tmp.T  - p0/params.dist)/params.lmbda
 	
 	print Q0
 	
@@ -263,7 +261,7 @@ def main():
 	if cpt_pol :
 		print 'Computation of Polarisation Correction ...'
 		P0xn = np.cross(p0,normal_to_pol,axis=0)
-		NormP0xn =  norm(P0xn)
+		NormP0xn =  norm(P0xn)#TODO corriger le norm si besoin 
 		# np.tensordot(P0xn,P_total_tmp,axes=([0],[2]) 
 		POL_tmp = pol_degree*(1-( (P0xn*P_total_tmp).sum(axis=-1))/(NormP0xn*P_total_tmp_modulus))**2	
 	
