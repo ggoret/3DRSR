@@ -5,13 +5,17 @@
 # Gael Goret and Alessandro Mirone for the European Synchrotron Radiation Facility
 # gael.goret@esrf.fr, mirone@esrf.fr
 ###################################################################################
-
-import fabio
+try :
+	import fabio
+except :
+	print 'Warning : fabio module could not be initialise'
 import sys, time
 import numpy as np
 from numpy.linalg import norm
 
-np.matrix=None
+#from mayavi import mlab
+
+
 
 __version__=0.0
 
@@ -97,8 +101,7 @@ def U(r1,r2,r3):
 #--------------------------------------------------------------------------------------------------------
 
 def P0(dist,b2):
-	""" Beam tilt matrix """
-	B = Rotation(b2,1)
+	B = Rotation(b2,1) # Beam tilt matrix
 	""" Primary projection of pixel coordinates (X,Y) to the reciprocal space. """
 	# p0 = BM.dot(np.matrix([[dist],[0],[0]]))
 	p0 = np.dot(B,   [ dist, 0,0 ] ) 
@@ -169,16 +172,21 @@ def main():
 	time0 = time.time()
 	print 'Reading File ...'
 	
-	img = fabio.open('feo1_1_00001.cbf')
-	time1 = time.time()
-	print '-> t = %.2f s'%(time1-time0)
-	data = img.data
-	dim1,dim2 = img.dim1,img.dim2
-	"""
-	dim1,dim2 = 1200,1024
+	#DEBUG OPTIONS	
+	image_test = False
+	cpt_pol = True
+	cpt_c3 = True
+	
+	if image_test:
+		img = fabio.open('feo1_1_00001.cbf')
+		time1 = time.time()
+		print '-> t = %.2f s'%(time1-time0)
+		data = img.data
+		dim1,dim2 = img.dim1,img.dim2
+	else :
+		dim1,dim2 = 2300,2350
+		data = np.ones((dim2,dim1),dtype = np.int32)*10000
 	print 'Image Dimension :',dim2,dim1
-	data = np.ones((dim2,dim1),dtype = np.int32)*10000
-	"""
 
 	print 'Setting Parameters ...'
 	params = XCalibur_parameters()
@@ -230,8 +238,6 @@ def main():
 	Q0_tmp = P_total_tmp.T/P_total_tmp_modulus.T
 	Q0 = (Q0_tmp.T  - p0/params.dist)/params.lmbda
 	
-	print Q0
-	
 	time3 = time.time()
 	print '-> t = %.2f s'%(time3-time2)	
 	
@@ -254,22 +260,18 @@ def main():
 	pol_degree = 1. # polarisation degree
 	normal_to_pol = np.array([0,0,1]) # normal to polarisation plane
 	
-	#CORRECTION OPTIONS
-	cpt_pol = False 
-	cpt_c3 = False
-	
 	if cpt_pol :
 		print 'Computation of Polarisation Correction ...'
 		P0xn = np.cross(p0,normal_to_pol,axis=0)
-		NormP0xn =  norm(P0xn)#TODO corriger le norm si besoin 
+		P0xn_modulus =  np.sqrt(np.sum(P0xn*P0xn,axis = -1))
 		# np.tensordot(P0xn,P_total_tmp,axes=([0],[2]) 
-		POL_tmp = pol_degree*(1-( (P0xn*P_total_tmp).sum(axis=-1))/(NormP0xn*P_total_tmp_modulus))**2	
+		POL_tmp = pol_degree*(1-( (P0xn*P_total_tmp).sum(axis=-1))/(P0xn_modulus*P_total_tmp_modulus))**2	
 	
 		POL_tmp += 	(1-pol_degree)*(1-(np.tensordot(normal_to_pol,P_total_tmp,axes=([0],[2]))/P_total_tmp_modulus)**2)
 		print 'POL_tmp.shape',POL_tmp.shape
 	else :
 		print 'Computation of Polarisation Correction : Canceled'
-		#POL_tmp = np.ones((dim2,dim1),dtype = np.float32)
+		POL_tmp = np.ones((dim2,dim1),dtype = np.float32)
 	
 	time7 = time.time()
 	print '-> t = %.2f s'%(time7-time6)	
@@ -280,7 +282,7 @@ def main():
 		print 'C3.shape',C3.shape
 	else:
 		print 'Computation of Flux Density and Parallax Correction : Canceled'
-		#C3 = np.ones((dim2,dim1),dtype = np.float32)
+		C3 = np.ones((dim2,dim1),dtype = np.float32)
 		
 	time8 = time.time()
 	print '-> t = %.2f s'%(time8-time7)
@@ -293,7 +295,7 @@ def main():
 	
 	#cube_dim = sup_pow_2(2*Qmax) + 1 # closest power of 2 > 2Qmax + 1 (to be sure that we have a symetric center)
 
-	cube_dim=256 + 1
+	cube_dim=512 + 1
 
 	print 'CUBE DIMs =', cube_dim
 
@@ -336,18 +338,16 @@ def main():
 	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
 	
 	print 'Filling up the Volume with Corrected Intensity ...'
-	#Intensity = (data/np.tensordot(POL_tmp,C3,axes=([1],[1])))#Wrong
-	Intensity = data
-	print 'Data.shape',Intensity.shape
-	print 'Volume.shape',Volume.shape
-	Volume[I_array,J_array,K_array] = Intensity 
+	Volume[I_array,J_array,K_array] = data/(POL_tmp*C3)
 	
 	time11 = time.time()
 	print '-> t = %.2f s'%(time11-time10)
 	
 	print '3D Intensity Distribution :'
-	print np.where(Volume>0)
-		
+	print Volume[np.where(Volume>0)]
+	print '-> Total time = %.2f s'%(time11-time0)
+	#mlab.contour3d(Volume, contours=10000, transparent=True)	
+	#mlab.show()
 	sys.exit()
 
 
