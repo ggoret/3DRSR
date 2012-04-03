@@ -8,16 +8,17 @@
 try :
 	import fabio
 except :
-	print 'Warning : fabio module could not be initialise'
+	print 'Warning : fabio module could not be initialised'
+try:
+	from mayavi import mlab
+except:
+	print 'Warning : mayavi module could not be initialised'
+try:
+	import scipy as np
+except:
+	import numpy as np
 import sys, time
-import numpy as np
-from numpy.linalg import norm
-
-#from mayavi import mlab
-
-
-
-__version__=0.0
+__version__=0.1
 
 #--------------------------------------------------------------------------------------------------------
 # Logo
@@ -42,7 +43,7 @@ def display_logo():
 	print ""
 
 #--------------------------------------------------------------------------------------------------------
-# Rotation Matrix
+# Rotation, Projection and Orientation Matrix
 #--------------------------------------------------------------------------------------------------------
 
 
@@ -50,6 +51,7 @@ def Rotation(angle, rotation_axis=0 ):
 	if type(rotation_axis)==type("") :
 		rotation_axis={"x":0,"y":1,"z":2}
 	assert((rotation_axis>=0 and rotation_axis<=3))
+	angle = np.radians(angle)
 	ret_val = np.zeros([3,3],"d")
 	i1=rotation_axis
 	i2=(rotation_axis+1)%3
@@ -63,7 +65,7 @@ def Rotation(angle, rotation_axis=0 ):
 
 #--------------------------------------------------------------------------------------------------------	
 	
-def R(omega,phi,kappa,alpha,beta,omega_offset):
+def Prim_Rot_of_RS(omega,phi,kappa,alpha,beta,omega_offset):
 	""" 
 	Primary rotation of reciprocal space. 
 	Omega, kappa, phi are the nominal values of the angle
@@ -91,70 +93,79 @@ def DET(theta, theta_offset, d1,d2):
 	return det
 #--------------------------------------------------------------------------------------------------------	
 
-def U(r1,r2,r3):
+def Snd_Rot_of_RS(r1,r2,r3):
 	""" Secondary rotation of reciprocal space (to orient the crystallographic axis in a special way) """
 	u = Rotation(r3,2).dot(Rotation(r2,1)).dot(Rotation(r1,0))
 	return u
 
 #--------------------------------------------------------------------------------------------------------
-# Projection and Orientation
-#--------------------------------------------------------------------------------------------------------
 
 def P0(dist,b2):
-	B = Rotation(b2,1) # Beam tilt matrix
 	""" Primary projection of pixel coordinates (X,Y) to the reciprocal space. """
-	# p0 = BM.dot(np.matrix([[dist],[0],[0]]))
+	B = Rotation(b2,1) # Beam tilt matrix
 	p0 = np.dot(B,   [ dist, 0,0 ] ) 
 	return p0
 	
 #--------------------------------------------------------------------------------------------------------
-
-def P(theta, theta_offset,d1,d2,dist,x,y):
-	res = np.dot(DET(theta, theta_offset, d1,d2) , [-dist , x , y])
-	return res
-
-#--------------------------------------------------------------------------------------------------------
 # Corrections
 #--------------------------------------------------------------------------------------------------------
 
-MD0 = np.array([[1,0],[0,1]  ],"d")
-MD1 = np.array([[-1,0],[0,1] ],"d")
-MD2 = np.array([[1,0],[0,-1] ],"d") 
-MD3 = np.array([[-1,0],[0,-1]],"d")
-MD4 = np.array([[0,1],[1,0]  ],"d")
-MD5 = np.array([[0,-1],[1,0] ],"d")
-MD6 = np.array([[0,1],[-1,0] ],"d")
-MD7 = np.array([[0,-1],[-1,0]],"d")
+MD0 = np.array([[1,0],[0,1]  ],dtype = np.int32)
+MD1 = np.array([[-1,0],[0,1] ],dtype = np.int32)
+MD2 = np.array([[1,0],[0,-1] ],dtype = np.int32)
+MD3 = np.array([[-1,0],[0,-1]],dtype = np.int32)
+MD4 = np.array([[0,1],[1,0]  ],dtype = np.int32)
+MD5 = np.array([[0,-1],[1,0] ],dtype = np.int32)
+MD6 = np.array([[0,1],[-1,0] ],dtype = np.int32)
+MD7 = np.array([[0,-1],[-1,0]],dtype = np.int32)
 
 #--------------------------------------------------------------------------------------------------------
-# Xcalibur parameter Class
+# Parameter Class
 #--------------------------------------------------------------------------------------------------------
 
-class XCalibur_parameters(object):
+class Parameters(object):
 	def __init__(self):
 		self.pixel_size = 0.172 # mm
 		detector_distance = 174.42 # mm	
 		self.dist = detector_distance * 1.72  # mm
 		self.beam_tilt_angle = 0.99075 # deg
+
 		self.det_origin_X =  1733.19127
 		self.det_origin_Y =  1712.50841
-		self.lmbda = 0.67018 # Wavelength users specified (ang)
 		
+		self.lmbda = 0.67018 # Wavelength users specified (ang)
+		self.kappa = -134.
+		self.alpha = 50.
+		self.beta = 0.
+		self.omega = 57.
+		self.theta = 0.
+		self.phi = 0. #(n-1)*0.1 where n is the number of image
+	
+		self.omega_offset = -0.19777
+		self.theta_offset = 0.39804
+	
+		self.d1 = -0.41144
+		self.d2 = 1.17097
+	
+		self.r1 = -88.788
+		self.r2 = 2.257
+		self.r3 = 69.629
+		
+		self.pol_degree = 1. # polarisation degree
+		self.normal_to_pol = np.array([0,0,1]) # normal to polarisation plane
+		
+		self.cube_dim = 256 + 1
+		
+		#DEBUG OPTIONS :
+		self.cpt_corr = True
+
 #--------------------------------------------------------------------------------------------------------
 # Miscelaneous
 #--------------------------------------------------------------------------------------------------------	          
 
-def sup_pow_2(x):
-	p=1
-	while(p<x):
-		p=p*2
-	return p
-	
-#--------------------------------------------------------------------------------------------------------
-
 def mag_max(l):
 	"""
-	l is a list of coordinated 
+	l is a list of coordinates
 	"""
 	maxi = 0
 	for c in l:
@@ -162,140 +173,38 @@ def mag_max(l):
 		if mag > maxi:
 			maxi = mag
 	return maxi
-		
+
 #--------------------------------------------------------------------------------------------------------
-# Main
+# Projection
 #--------------------------------------------------------------------------------------------------------
 
-def main():
-	display_logo()
-	time0 = time.time()
-	print 'Reading File ...'
+def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,POL_tmp,C3,params):
 	
-	#DEBUG OPTIONS	
-	image_test = False
-	cpt_pol = True
-	cpt_c3 = True
+	dim1,dim2 = data.shape
 	
-	if image_test:
-		img = fabio.open('feo1_1_00001.cbf')
-		time1 = time.time()
-		print '-> t = %.2f s'%(time1-time0)
-		data = img.data
-		dim1,dim2 = img.dim1,img.dim2
-	else :
-		dim1,dim2 = 2300,2350
-		data = np.ones((dim2,dim1),dtype = np.int32)*10000
-	print 'Image Dimension :',dim2,dim1
-
-	print 'Setting Parameters ...'
-	params = XCalibur_parameters()
-
-	#PREPARATION STEP 1
-	p0 = P0(params.dist,params.beam_tilt_angle)
-	MD = MD0
-
-	#PREPARATION STEP 2-3-4
-	kappa = -134.
-	alpha = 50.
-	beta = 50.
-	omega = 57.
-	theta = 0.
-	phi = 0. #(n-1)*0.1 where n is the number of image
-	
-	omega_offset = -0.19777
-	theta_offset = 0.39804
-	
-	d1 = -0.41144
-	d2 = 1.17097
-	
-	r1 = -88.788
-	r2 = 2.257
-	r3 = 69.629
-	time2 = time.time()
-	print 'Computation of Initial Projection Coordinates Q0'
-	Q0 = np.zeros((dim2,dim1,3),dtype = np.float32) 
-	MD_pix_tmp = params.pixel_size*MD
-
-	X_array_tmp = np.zeros( (dim1,2  ))
-	X_array_tmp [:,0] = np.arange(dim1) - (params.det_origin_X +dim1/2.0 )
-
-	Y_array_tmp = np.zeros( (dim2,2  ))
-	Y_array_tmp [:,1] = np.arange(dim2) - (params.det_origin_Y +dim2/2.0 )
-
-	X_array_tmp=np.tensordot(   X_array_tmp , MD_pix_tmp ,axes=([1],[1])   )
-	Y_array_tmp=np.tensordot(   Y_array_tmp ,MD_pix_tmp , axes=([1],[1])   )
-	
-	YX_array_tmp =  Y_array_tmp[:,None,:] + X_array_tmp[None,:,:] 
-	
-	P_total_tmp = np.zeros((dim2, dim1 ,3),dtype = np.float32)
-	P_total_tmp[:,:,1:3] = YX_array_tmp 
-	P_total_tmp[:,:, 0 ] = -params.dist
-	
-	P_total_tmp=np.tensordot(P_total_tmp, DET(theta, theta_offset, d1,d2),   axes=([2],[1]))
-
-	P_total_tmp_modulus = np.sqrt(np.sum(P_total_tmp*P_total_tmp,axis=-1))
-	Q0_tmp = P_total_tmp.T/P_total_tmp_modulus.T
-	Q0 = (Q0_tmp.T  - p0/params.dist)/params.lmbda
-	
-	time3 = time.time()
-	print '-> t = %.2f s'%(time3-time2)	
-	
-	
-	Prim_Rot_of_RS = R(omega,phi,kappa,alpha,beta,omega_offset)
-	Snd_Rot_of_RS = U(r1,r2,r3)
+	R = Prim_Rot_of_RS(params.omega,params.phi,params.kappa,params.alpha,params.beta,params.omega_offset)
+	U = Snd_Rot_of_RS(params.r1,params.r2,params.r3)
 	
 	time4 = time.time()
 	print 'Primary Rotation : Q0 -> Q'
-	Q = np.tensordot (  Q0 , Prim_Rot_of_RS.T , axes=([2],[1]))
+	Q = np.tensordot (  Q0 , R.T , axes=([2],[1]))
 	time5 = time.time()
 	print '-> t = %.2f s'%(time5-time4)
 	print 'Secondary Rotation : Q -> Qfin'
-	Qfin = np.tensordot (Q , Snd_Rot_of_RS.T , axes=([2],[1]))
+	Qfin = np.tensordot (Q , U.T , axes=([2],[1]))
 	time6 = time.time()
 	print '-> t = %.2f s'%(time6-time5)
 	print Qfin.shape
 	print '--------------------------------------'
 	
-	pol_degree = 1. # polarisation degree
-	normal_to_pol = np.array([0,0,1]) # normal to polarisation plane
-	
-	if cpt_pol :
-		print 'Computation of Polarisation Correction ...'
-		P0xn = np.cross(p0,normal_to_pol,axis=0)
-		P0xn_modulus =  np.sqrt(np.sum(P0xn*P0xn,axis = -1))
-		# np.tensordot(P0xn,P_total_tmp,axes=([0],[2]) 
-		POL_tmp = pol_degree*(1-( (P0xn*P_total_tmp).sum(axis=-1))/(P0xn_modulus*P_total_tmp_modulus))**2	
-	
-		POL_tmp += 	(1-pol_degree)*(1-(np.tensordot(normal_to_pol,P_total_tmp,axes=([0],[2]))/P_total_tmp_modulus)**2)
-		print 'POL_tmp.shape',POL_tmp.shape
-	else :
-		print 'Computation of Polarisation Correction : Canceled'
-		POL_tmp = np.ones((dim2,dim1),dtype = np.float32)
-	
-	time7 = time.time()
-	print '-> t = %.2f s'%(time7-time6)	
-	
-	if cpt_c3:
-		print 'Computation of Flux Density and Parallax Correction ...'
-		C3 =  params.dist**3/(params.dist**2+np.sum (YX_array_tmp*YX_array_tmp, axis = -1 ) )**(3/2)
-		print 'C3.shape',C3.shape
-	else:
-		print 'Computation of Flux Density and Parallax Correction : Canceled'
-		C3 = np.ones((dim2,dim1),dtype = np.float32)
-		
-	time8 = time.time()
-	print '-> t = %.2f s'%(time8-time7)
 	print 'Estimation of Qmax ...'
 	# Estimation of Qmax
-	corners  = np.array([Q0[0,0,:],Q0[0,dim1-1,:],Q0[dim2-1,0,:],Q0[dim2-1,dim1-1,:]])
+	corners  = np.array([Q0[0,0,:],Q0[0,dim2-1,:],Q0[dim1-1,0,:],Q0[dim1-1,dim2-1,:]])
 	Qmax = mag_max(corners) # maximal magnitude for reciprocal vector corresponding to the corners pixels
 	print '-----------------------------'
 	print 'Qmax = ', Qmax
 	
-	#cube_dim = sup_pow_2(2*Qmax) + 1 # closest power of 2 > 2Qmax + 1 (to be sure that we have a symetric center)
-
-	cube_dim=512 + 1
+	cube_dim= params.cube_dim
 
 	print 'CUBE DIMs =', cube_dim
 
@@ -311,48 +220,162 @@ def main():
 	QyFilter = np.where((Qfin[:,:,1]-q0y) <= dqy)
 	QzFilter = np.where((Qfin[:,:,2]-q0z) <= dqz)
 
-	Qxfin = np.zeros((dim2,dim1),dtype = np.float32)
-	Qyfin = np.zeros((dim2,dim1),dtype = np.float32)
-	Qzfin = np.zeros((dim2,dim1),dtype = np.float32)
+	Qxfin = np.zeros((dim1,dim2),dtype = np.float32)
+	Qyfin = np.zeros((dim1,dim2),dtype = np.float32)
+	Qzfin = np.zeros((dim1,dim2),dtype = np.float32)
 	
 	Qxfin[QxFilter] = Qfin[QxFilter[0],QxFilter[1],0]
 	Qyfin[QyFilter] = Qfin[QyFilter[0],QyFilter[1],1]
 	Qzfin[QzFilter] = Qfin[QzFilter[0],QzFilter[1],2]
 	
 	time9 = time.time()
-	I_array = ( np.floor ( np.sqrt(cube_dim-1) * (1 + (Qxfin - q0x)/dqx) ) ).astype(np.int32) 
-	J_array = ( np.floor ( np.sqrt(cube_dim-1) * (1 + (Qyfin - q0y)/dqy) ) ).astype(np.int32)
-	K_array = ( np.floor ( np.sqrt(cube_dim-1) * (1 + (Qzfin - q0z)/dqz) ) ).astype(np.int32)
+	I_array = ( np.floor ( (cube_dim-1)//2 * (1 + (Qxfin - q0x)/dqx) ) ).astype(np.int32) 
+	J_array = ( np.floor ( (cube_dim-1)//2 * (1 + (Qyfin - q0y)/dqy) ) ).astype(np.int32)
+	K_array = ( np.floor ( (cube_dim-1)//2 * (1 + (Qzfin - q0z)/dqz) ) ).astype(np.int32)
 	
 	time10 = time.time()
 	print '-> t = %.2f s'%(time10-time9)
 	
-	print '-------------------'
-	print I_array
-	print '-------------------'
-	print J_array
-	print '-------------------'
-	print K_array
-	print '-------------------'
+	if cpt_corr:
+		return I_array,J_array,K_array,data/(POL_tmp*C3) # Data Correction
+	else:
+		return I_array,J_array,K_array,data
 	
+#--------------------------------------------------------------------------------------------------------
+# Main
+#--------------------------------------------------------------------------------------------------------
+
+def main():
+	display_logo()
+	flist = sys.argv[1:]
+	time0 = time.time()
+	print 'Reading File ...'
+	
+	#DEBUG OPTIONS
+	rendering = False
+	file_saving = True
+	
+	"""
+	img = fabio.open(flist[0])
+	time1 = time.time()
+	print '-> t = %.2f s'%(time1-time0)
+	data = img.data
+	dim1,dim2 = data.shape
+	"""
+	
+	dim1,dim2 = 2527,2463 
+	data = np.ones((dim1,dim2),dtype = np.int32)*10000
+	print 'Image Dimension :',dim1,dim2
+
+	print 'Setting Parameters ...'
+	params = Parameters()
+
+	p0 = P0(params.dist,params.beam_tilt_angle)
+	MD = MD0
+	
+	time2 = time.time()
+	print 'Computation of Initial Projection Coordinates Q0'
+	Q0 = np.zeros((dim1,dim2,3),dtype = np.float32) 
+	MD_pix_tmp = params.pixel_size*MD
+
+	X_array_tmp = np.zeros( (dim1,2  ))
+	X_array_tmp [:,0] = np.arange(dim1) - (params.det_origin_X - 1725 + dim1/2.0 )
+
+	Y_array_tmp = np.zeros( (dim2,2  ))
+	Y_array_tmp [:,1] = np.arange(dim2) - (params.det_origin_Y - 1725 + dim2/2.0 )
+
+	X_array_tmp=np.tensordot(   X_array_tmp , MD_pix_tmp ,axes=([1],[1])   )
+	Y_array_tmp=np.tensordot(   Y_array_tmp ,MD_pix_tmp , axes=([1],[1])   )
+	
+	XY_array_tmp =  X_array_tmp[:,None,:] + Y_array_tmp[None,:,:]  
+	
+	P_total_tmp = np.zeros((dim1, dim2 ,3),dtype = np.float32)
+	P_total_tmp[:,:, 0 ] = -params.dist
+	P_total_tmp[:,:,1:3] = XY_array_tmp 
+	
+	P_total_tmp=np.tensordot(P_total_tmp, DET(params.theta, params.theta_offset, params.d1,params.d2),   axes=([2],[1]))
+	
+	P_total_tmp_modulus = np.sqrt(np.sum(P_total_tmp*P_total_tmp,axis=-1))
+	
+	Q0_tmp = P_total_tmp.T/P_total_tmp_modulus.T
+	Q0 = (Q0_tmp.T  + p0/params.dist)/params.lmbda
+	
+	time3 = time.time()
+	print '-> t = %.2f s'%(time3-time2)	
+	
+	time6 = time.time()
+	if params.cpt_corr :
+		print 'Computation of Polarisation Correction ...'
+		P0xn = np.cross(p0,params.normal_to_pol,axis=0)
+		P0xn_modulus =  np.sqrt(np.sum(P0xn*P0xn,axis = -1))
+		# np.tensordot(P0xn,P_total_tmp,axes=([0],[2]) 
+		POL_tmp = params.pol_degree*(1-( (P0xn*P_total_tmp).sum(axis=-1))/(P0xn_modulus*P_total_tmp_modulus))**2	
+	
+		POL_tmp += 	(1-params.pol_degree)*(1-(np.tensordot(params.normal_to_pol,P_total_tmp,axes=([0],[2]))/P_total_tmp_modulus)**2)
+	else :
+		print 'Computation of Polarisation Correction : Canceled'
+	
+	time7 = time.time()
+	print '-> t = %.2f s'%(time7-time6)	
+	
+	if params.cpt_corr:
+		print 'Computation of Flux Density and Parallax Correction ...'
+		C3 =  params.dist**3/(params.dist**2+np.sum (XY_array_tmp*XY_array_tmp, axis = -1 ) )**(3/2)
+	else:
+		print 'Computation of Flux Density and Parallax Correction : Canceled'
+		
+	time8 = time.time()
+	print '-> t = %.2f s'%(time8-time7)
+
+	cube_dim= params.cube_dim
 	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
 	
-	print 'Filling up the Volume with Corrected Intensity ...'
-	Volume[I_array,J_array,K_array] = data/(POL_tmp*C3)
-	
+	total = len(flist)
+	nbfile = 0.
+	for fname in flist:
+		timeI0 = time.time()
+		img = fabio.open(fname)
+		print 'Working on image %s'%fname
+		data = img.data
+		dim1,dim2 = data.shape
+		
+		#dim1,dim2 = 2527,2463 
+		#data = np.ones((dim1,dim2),dtype = np.int32)*10000
+		
+		params.phi = nbfile*0.1
+		
+		I_array,J_array,K_array,intensity = project_image(data, p0, Q0, XY_array_tmp, P_total_tmp, P_total_tmp_modulus, POL_tmp, C3, params)
+		print 'Summing Corrected Intensity into the Volume ...'
+		Volume[I_array,J_array,K_array] += intensity
+		nbfile += 1
+		print '##################################'
+		print 'Progression : %5.1f %% '%((nbfile/total)*100.)
+		timeI1 = time.time()	
+		print '-> time for this image = %.2f s'%(timeI1-timeI0)
+		print '##################################'
+		
 	time11 = time.time()
-	print '-> t = %.2f s'%(time11-time10)
-	
-	print '3D Intensity Distribution :'
-	print Volume[np.where(Volume>0)]
+	print '3D Intensity Distribution : Done'
+	threeDid = Volume[np.where(Volume>0)]
+	print threeDid
+	vmin,vmax = min(threeDid),max(threeDid)
 	print '-> Total time = %.2f s'%(time11-time0)
-	#mlab.contour3d(Volume, contours=10000, transparent=True)	
-	#mlab.show()
-	sys.exit()
+	if file_saving:
+		np.save('intensity_distribution',Volume)
+	if rendering:
+		print 'Rendering...'
+		s = mlab.pipeline.volume(mlab.pipeline.scalar_field(Volume),vmin=-1, vmax=vmax+1)
+		s.scene.background = (1,1,1)
+		mlab.show()
+	print 'Normal END'
+	
 
 
 if __name__ == "__main__":
-    main()
-    
+	if len(sys.argv) < 2:
+		print('Usage : python 3DRSR.py image-file(s)')
+	else:
+		main()
+	sys.exit()
     
     
