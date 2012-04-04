@@ -167,20 +167,13 @@ def mag_max(l):
 	"""
 	l is a list of coordinates
 	"""
-	maxi = 0
-	for c in l:
-		mag = norm(c)
-		if mag > maxi:
-			maxi = mag
-	return maxi
+	return max(np.sqrt(np.sum(l*l,axis=-1)))
 
 #--------------------------------------------------------------------------------------------------------
 # Projection
 #--------------------------------------------------------------------------------------------------------
 
-def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,POL_tmp,C3,params):
-	
-	dim1,dim2 = data.shape
+def project_image(dim1,dim2,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Qmax,params):
 	
 	R = Prim_Rot_of_RS(params.omega,params.phi,params.kappa,params.alpha,params.beta,params.omega_offset)
 	U = Snd_Rot_of_RS(params.r1,params.r2,params.r3)
@@ -197,13 +190,6 @@ def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,POL_tm
 	print Qfin.shape
 	print '--------------------------------------'
 	
-	print 'Estimation of Qmax ...'
-	# Estimation of Qmax
-	corners  = np.array([Q0[0,0,:],Q0[0,dim2-1,:],Q0[dim1-1,0,:],Q0[dim1-1,dim2-1,:]])
-	Qmax = mag_max(corners) # maximal magnitude for reciprocal vector corresponding to the corners pixels
-	print '-----------------------------'
-	print 'Qmax = ', Qmax
-	
 	cube_dim= params.cube_dim
 
 	print 'CUBE DIMs =', cube_dim
@@ -216,10 +202,23 @@ def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,POL_tm
 	print '-----------------------------'
 	
 	print 'Computation of 3D Volume Indices ...'
+	
+	time9 = time.time()
+	I_array_tmp = (np.floor((cube_dim-1)//2 * (1 + (Qfin[:,:,0]-q0x)/dqx))).astype(np.int32)
+	J_array_tmp = (np.floor((cube_dim-1)//2 * (1 + (Qfin[:,:,1]-q0y)/dqy))).astype(np.int32)
+	K_array_tmp = (np.floor((cube_dim-1)//2 * (1 + (Qfin[:,:,2]-q0z)/dqz))).astype(np.int32)
+	
+	I_array = I_array_tmp[np.where(I_array_tmp<= cube_dim)].reshape(dim1,dim2)
+	J_array = J_array_tmp[np.where(J_array_tmp<= cube_dim)].reshape(dim1,dim2)
+	K_array = K_array_tmp[np.where(K_array_tmp<= cube_dim)].reshape(dim1,dim2)
+	time10 = time.time()
+	print '-> t = %.2f s'%(time10-time9)
+	
+	"""
 	QxFilter = np.where((Qfin[:,:,0]-q0x) <= dqx)
 	QyFilter = np.where((Qfin[:,:,1]-q0y) <= dqy)
 	QzFilter = np.where((Qfin[:,:,2]-q0z) <= dqz)
-
+	
 	Qxfin = np.zeros((dim1,dim2),dtype = np.float32)
 	Qyfin = np.zeros((dim1,dim2),dtype = np.float32)
 	Qzfin = np.zeros((dim1,dim2),dtype = np.float32)
@@ -228,18 +227,12 @@ def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,POL_tm
 	Qyfin[QyFilter] = Qfin[QyFilter[0],QyFilter[1],1]
 	Qzfin[QzFilter] = Qfin[QzFilter[0],QzFilter[1],2]
 	
-	time9 = time.time()
-	I_array = ( np.floor ( (cube_dim-1)//2 * (1 + (Qxfin - q0x)/dqx) ) ).astype(np.int32) 
-	J_array = ( np.floor ( (cube_dim-1)//2 * (1 + (Qyfin - q0y)/dqy) ) ).astype(np.int32)
-	K_array = ( np.floor ( (cube_dim-1)//2 * (1 + (Qzfin - q0z)/dqz) ) ).astype(np.int32)
-	
-	time10 = time.time()
-	print '-> t = %.2f s'%(time10-time9)
-	
-	if cpt_corr:
-		return I_array,J_array,K_array,data/(POL_tmp*C3) # Data Correction
-	else:
-		return I_array,J_array,K_array,data
+	I_array = (np.floor ( (cube_dim-1)//2 * (1 + (Qxfin - q0x)/dqx) )).astype(np.int32)
+	J_array = (np.floor ( (cube_dim-1)//2 * (1 + (Qyfin - q0y)/dqy) )).astype(np.int32)
+	K_array = (np.floor ( (cube_dim-1)//2 * (1 + (Qzfin - q0z)/dqz) )).astype(np.int32)
+	"""
+
+	return I_array,J_array,K_array
 	
 #--------------------------------------------------------------------------------------------------------
 # Main
@@ -326,27 +319,41 @@ def main():
 		
 	time8 = time.time()
 	print '-> t = %.2f s'%(time8-time7)
-
+	
+	print 'Estimation of Qmax ...'
+	# Estimation of Qmax
+	corners  = np.array([Q0[0,0,:],Q0[0,dim2-1,:],Q0[dim1-1,0,:],Q0[dim1-1,dim2-1,:]])
+	Qmax = mag_max(corners) # maximal magnitude for reciprocal vector corresponding to the corners pixels
+	print '-----------------------------'
+	print 'Qmax = ', Qmax
+	
 	cube_dim= params.cube_dim
 	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
 	
 	total = len(flist)
 	nbfile = 0.
 	for fname in flist:
+		
 		timeI0 = time.time()
+		
 		img = fabio.open(fname)
 		print 'Working on image %s'%fname
 		data = img.data
 		dim1,dim2 = data.shape
-		
-		#dim1,dim2 = 2527,2463 
-		#data = np.ones((dim1,dim2),dtype = np.int32)*10000
-		
+		"""
+		dim1,dim2 = 2527,2463 
+		data = np.ones((dim1,dim2),dtype = np.int32)*10000
+		"""
 		params.phi = nbfile*0.1
 		
-		I_array,J_array,K_array,intensity = project_image(data, p0, Q0, XY_array_tmp, P_total_tmp, P_total_tmp_modulus, POL_tmp, C3, params)
+		I_array,J_array,K_array = project_image(dim1,dim2, p0, Q0, XY_array_tmp, P_total_tmp, P_total_tmp_modulus, Qmax, params)
 		print 'Summing Corrected Intensity into the Volume ...'
-		Volume[I_array,J_array,K_array] += intensity
+		
+		print I_array.shape
+		print J_array.shape
+		print K_array.shape
+		
+		Volume[I_array,J_array,K_array] += data/(POL_tmp*C3) # Data Correction
 		nbfile += 1
 		print '##################################'
 		print 'Progression : %5.1f %% '%((nbfile/total)*100.)
