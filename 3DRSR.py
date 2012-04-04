@@ -248,16 +248,16 @@ def main():
 	rendering = False
 	file_saving = True
 	
-	"""
 	img = fabio.open(flist[0])
 	time1 = time.time()
 	print '-> t = %.2f s'%(time1-time0)
 	data = img.data
 	dim1,dim2 = data.shape
-	"""
 	
+	"""
 	dim1,dim2 = 2527,2463 
 	data = np.ones((dim1,dim2),dtype = np.int32)*10000
+	"""
 	print 'Image Dimension :',dim1,dim2
 
 	print 'Setting Parameters ...'
@@ -348,11 +348,6 @@ def main():
 		
 		I_array,J_array,K_array = project_image(dim1,dim2, p0, Q0, XY_array_tmp, P_total_tmp, P_total_tmp_modulus, Qmax, params)
 		print 'Summing Corrected Intensity into the Volume ...'
-		
-		print I_array.shape
-		print J_array.shape
-		print K_array.shape
-		
 		Volume[I_array,J_array,K_array] += data/(POL_tmp*C3) # Data Correction
 		nbfile += 1
 		print '##################################'
