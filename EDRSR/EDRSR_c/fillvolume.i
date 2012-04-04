@@ -15,6 +15,11 @@
 %include typemaps.i
 
 
+%init %{	
+  import_array();
+%}	
+
+
 %typemap(in) (int  Nz, int Ny, int Nx, float  * VOLUME) (PyArrayObject* tmp=NULL) {
 
  if(!PyArray_Check($input)) {
@@ -48,4 +53,3 @@
 
 
 void pippo(int  Nz, int Ny, int Nx, float  * VOLUME )  ; 
-
