@@ -10,6 +10,7 @@ try :
 except :
 	print 'Warning : fabio module could not be initialised'
 try:
+	raise Exception
 	from mayavi import mlab
 except:
 	print 'Warning : mayavi module could not be initialised'
@@ -269,9 +270,27 @@ def closest_ccp4_type(dtype):
 #--------------------------------------------------------------------------------------------------------
 # Projection
 #--------------------------------------------------------------------------------------------------------
+"""
+def project_image(data,                            float32 (dim1,dim2) 
+		  p0,                              float(dim1,dim2,3)
+		  Q0,                              float(dim1,dim2,3)
+		  XY_array_tmp,                    float(dim1,dim2,2) 
+		  P_total_tmp,                     float(dim1,dim2,3)
+		  P_total_tmp_modulus,             float(dim1,dim2)
+		  Qmax,                            float
+		  params,                          object
+		  Volume,                          float(nz,ny,nz   )
+		  Mask,                            float(nz,ny,nz   ) 
+		  C3,                              float32 (dim1,dim2) 
+		  POL_tmp                          float32 (dim1,dim2)  
+		  ):
+"""
 
-def project_image(dim1,dim2,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Qmax,params):
+def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Qmax,params, Volume, Mask,C3,  POL_tmp):
 	
+	dim1,dim2 = data.shape
+
+
 	R = Prim_Rot_of_RS(params.omega,params.phi,params.kappa,params.alpha,params.beta,params.omega_offset)
 	U = Snd_Rot_of_RS(params.r1,params.r2,params.r3)
 	
@@ -295,6 +314,29 @@ def project_image(dim1,dim2,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Q
 		
 	q0x = q0y = q0z = 0
 	
+	comment="""
+	# Qfin float (dim1,dim2,3)
+	#  Volume,                          float(nz,ny,nz   )
+	#  Mask,                            float(nz,ny,nz   ) 
+	#  C3,                              float32 (dim1,dim2) 
+	#  POL_tmp                          float32 (dim1,dim2)  
+	# (data,                            float32 (dim1,dim2) 
+"""
+	print " COMMENT " ,  comment
+	print  "Qfin    ",  Qfin   .shape            
+	print  "Volume  ",  Volume .shape          
+	print  "Mask    ",  Mask   .shape         
+	print  "C3      ",  C3     .shape         
+	print  "POL_tmp ",  POL_tmp.shape            
+	print  "data    ",  data   .shape   
+
+	print "  ENTREE DE FUNC_SOMME >>>>>>>>>>>>>>>>>>>>>>>>>>" 
+	func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data,POL_tmp,C3  )
+	print "  SORTIE DE FUNC_SOMME <<<<<<<<<<<<<<<<<<<<<<<<<<" 
+	
+def func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data,POL_tmp,C3  ):
+	dim1,dim2 = data.shape
+
 	print 'RECIPROCAL SPACE CENTER  =', q0x, q0y, q0z
 	print '-----------------------------'
 	
@@ -311,6 +353,11 @@ def project_image(dim1,dim2,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Q
 	time10 = time.time()
 	print '-> t = %.2f s'%(time10-time9)
 	
+
+	print 'Summing Corrected Intensity into the Volume ...'
+	Volume[I_array,J_array,K_array] += data/(POL_tmp*C3) # Data Correction
+	Mask[I_array,J_array,K_array] += 1
+
 	return I_array,J_array,K_array
 	
 #--------------------------------------------------------------------------------------------------------
@@ -408,7 +455,7 @@ def main():
 	
 	cube_dim= params.cube_dim
 	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
-	Mask = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.int32)
+	Mask = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
 	total = len(flist)
 	nbfile = 0.
 	for fname in flist:
@@ -418,17 +465,17 @@ def main():
 		img = fabio.open(fname)
 		print 'Working on image %s'%fname
 		data = img.data
-		dim1,dim2 = data.shape
 		"""
 		dim1,dim2 = 2527,2463 
 		data = np.ones((dim1,dim2),dtype = np.int32)*10000
 		"""
 		params.phi = nbfile*0.1
-		
-		I_array,J_array,K_array = project_image(dim1,dim2, p0, Q0, XY_array_tmp, P_total_tmp, P_total_tmp_modulus, Qmax, params)
-		print 'Summing Corrected Intensity into the Volume ...'
-		Volume[I_array,J_array,K_array] += data/(POL_tmp*C3) # Data Correction
-		Mask[I_array,J_array,K_array] += 1
+		# I_array,J_array,K_array = 
+		project_image(data,  p0, Q0, XY_array_tmp, P_total_tmp, P_total_tmp_modulus, Qmax, params,
+							Volume, Mask, C3, POL_tmp)
+		# print 'Summing Corrected Intensity into the Volume ...'
+		# Volume[I_array,J_array,K_array] += data/(POL_tmp*C3) # Data Correction
+		# Mask[I_array,J_array,K_array] += 1
 		nbfile += 1
 		print '##################################'
 		print 'Progression : %6.2f %% '%((nbfile/total)*100.)
