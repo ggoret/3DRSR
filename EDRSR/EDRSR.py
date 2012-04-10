@@ -170,6 +170,103 @@ def mag_max(l):
 	return max(np.sqrt(np.sum(l*l,axis=-1)))
 
 #--------------------------------------------------------------------------------------------------------
+# CCP4 Writer
+#--------------------------------------------------------------------------------------------------------
+
+def write_ccp4_grid_data(volume,path):
+	dtype = volume.dtype
+	mtype = closest_ccp4_type(dtype)
+	f = open(path, 'wb')
+
+	header = ccp4_header(volume, mtype)
+	f.write(header)
+
+	I, J, K = volume.shape
+	for k in range(K):
+		matrix = volume[:,:,k]
+		if dtype != mtype:
+			matrix = matrix.astype(dtype)
+		f.write(matrix.tostring())
+	# Put matrix statistics in header
+	header = ccp4_header(volume, dtype)
+	f.seek(0)
+	f.write(header)
+	f.close()
+	
+#--------------------------------------------------------------------------------------------------------
+
+def ccp4_header(volume, value_type):
+	size = volume.shape
+	from numpy import float32, int16, int8, int32
+	if value_type == np.int8:
+		mode = 0
+	elif value_type == np.int16:
+		mode = 1
+	else:
+		mode = 2
+
+	cell_size = map(lambda a,b: a*b, (1,1,1), size)
+
+	if np.little_endian:
+		machst = 0x00004144
+	else:
+		machst = 0x11110000
+
+	ver_stamp = '3DSRS %s' % time.asctime()
+	labels = [ver_stamp[:80]]
+
+	nlabl = len(labels)
+	# Make ten 80 character labels.
+	labels.extend(['']*(10-len(labels)))
+	labels = [l + (80-len(l))*'\0' for l in labels]
+	labelstr = ''.join(labels)
+
+	dmin = volume.min()
+	dmax = volume.max()
+	dmean = volume.mean()
+
+	strings = [
+			binary_string(size, np.int32),  # nx, ny, nz
+			binary_string(mode, np.int32),  # mode
+			binary_string((0,0,0), np.int32), # nxstart, nystart, nzstart
+			binary_string(size, np.int32),  # mx, my, mz
+			binary_string(cell_size, np.float32), # cella
+			binary_string((90,90,90), np.float32), # cellb
+			binary_string((1,2,3), np.int32), # mapc, mapr, maps
+			binary_string((dmin, dmax, dmean), np.float32), # dmin, dmax, dmean
+			binary_string(0, np.int32), # ispg
+			binary_string(0, np.int32), # nsymbt
+			binary_string([0]*25, np.int32), # extra
+			binary_string((0,0,0), np.float32), # origin
+			'MAP ', # map
+			binary_string(machst, np.int32), # machst
+			binary_string(0, np.float32), # rms
+			binary_string(nlabl, np.int32), # nlabl
+			labelstr,
+			]
+	header = ''.join(strings)
+	return header
+
+#--------------------------------------------------------------------------------------------------------    
+
+def binary_string(values, dtype):
+	return np.array(values, dtype).tostring()
+
+#--------------------------------------------------------------------------------------------------------
+
+def closest_ccp4_type(dtype):
+	if dtype in (np.float32, np.float64, np.float, np.int32, np.int, np.uint32, np.uint, np.uint16):
+		ctype = np.float32
+	elif dtype in (np.int16, np.uint8):
+		ctype = np.int16
+	elif dtype in (np.int8, np.int0, np.character):
+		ctype = np.int8
+	else:
+		raise TypeError, ('Volume data has unrecognized type %s' % dtype)
+
+	return 
+
+#--------------------------------------------------------------------------------------------------------
 # Projection
 #--------------------------------------------------------------------------------------------------------
 
@@ -214,24 +311,6 @@ def project_image(dim1,dim2,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Q
 	time10 = time.time()
 	print '-> t = %.2f s'%(time10-time9)
 	
-	"""
-	QxFilter = np.where((Qfin[:,:,0]-q0x) <= dqx)
-	QyFilter = np.where((Qfin[:,:,1]-q0y) <= dqy)
-	QzFilter = np.where((Qfin[:,:,2]-q0z) <= dqz)
-	
-	Qxfin = np.zeros((dim1,dim2),dtype = np.float32)
-	Qyfin = np.zeros((dim1,dim2),dtype = np.float32)
-	Qzfin = np.zeros((dim1,dim2),dtype = np.float32)
-	
-	Qxfin[QxFilter] = Qfin[QxFilter[0],QxFilter[1],0]
-	Qyfin[QyFilter] = Qfin[QyFilter[0],QyFilter[1],1]
-	Qzfin[QzFilter] = Qfin[QzFilter[0],QzFilter[1],2]
-	
-	I_array = (np.floor ( (cube_dim-1)//2 * (1 + (Qxfin - q0x)/dqx) )).astype(np.int32)
-	J_array = (np.floor ( (cube_dim-1)//2 * (1 + (Qyfin - q0y)/dqy) )).astype(np.int32)
-	K_array = (np.floor ( (cube_dim-1)//2 * (1 + (Qzfin - q0z)/dqz) )).astype(np.int32)
-	"""
-
 	return I_array,J_array,K_array
 	
 #--------------------------------------------------------------------------------------------------------
@@ -329,7 +408,7 @@ def main():
 	
 	cube_dim= params.cube_dim
 	Volume = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.float32)
-	
+	Mask = np.zeros((cube_dim,cube_dim,cube_dim),dtype = np.int32)
 	total = len(flist)
 	nbfile = 0.
 	for fname in flist:
@@ -349,9 +428,10 @@ def main():
 		I_array,J_array,K_array = project_image(dim1,dim2, p0, Q0, XY_array_tmp, P_total_tmp, P_total_tmp_modulus, Qmax, params)
 		print 'Summing Corrected Intensity into the Volume ...'
 		Volume[I_array,J_array,K_array] += data/(POL_tmp*C3) # Data Correction
+		Mask[I_array,J_array,K_array] += 1
 		nbfile += 1
 		print '##################################'
-		print 'Progression : %5.1f %% '%((nbfile/total)*100.)
+		print 'Progression : %6.2f %% '%((nbfile/total)*100.)
 		timeI1 = time.time()	
 		print '-> time for this image = %.2f s'%(timeI1-timeI0)
 		print '##################################'
@@ -364,6 +444,7 @@ def main():
 	print '-> Total time = %.2f s'%(time11-time0)
 	if file_saving:
 		np.save('intensity_distribution',Volume)
+		np.save('mask',Mask)
 	if rendering:
 		print 'Rendering...'
 		s = mlab.pipeline.volume(mlab.pipeline.scalar_field(Volume),vmin=-1, vmax=vmax+1)
