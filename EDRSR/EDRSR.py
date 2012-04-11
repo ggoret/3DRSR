@@ -286,7 +286,7 @@ def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Qmax,p
 	time5 = time.time()
 	print '-> t = %.2f s'%(time5-time4)
 	print 'Secondary Rotation : Q -> Qfin'
-	Qfin = np.tensordot (Q , U.T , axes=([2],[1]))
+	Qfin = np.tensordot (Q , U.T , axes=([2],[1])).astype(np.float32)
 	time6 = time.time()
 	print '-> t = %.2f s'%(time6-time5)
 	print '--------------------------------------'
