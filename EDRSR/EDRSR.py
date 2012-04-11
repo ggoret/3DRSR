@@ -331,10 +331,11 @@ def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Qmax,p
 	print  "data    ",  data   .shape   
 
 	print "  ENTREE DE FUNC_SOMME >>>>>>>>>>>>>>>>>>>>>>>>>>" 
-	func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data,POL_tmp,C3  )
+	#func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data,POL_tmp,C3  )
+	func_somme(q0x, q0y, q0z, dqx, dqy, dqz, nz, ny, nx, Volume, Mask, dim1, dim2, Qfin, data, POL_tmp, C3)
 	print "  SORTIE DE FUNC_SOMME <<<<<<<<<<<<<<<<<<<<<<<<<<" 
 	
-def func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data,POL_tmp,C3  ):
+def func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data, POL_tmp, C3):
 	dim1,dim2 = data.shape
 
 	print 'RECIPROCAL SPACE CENTER  =', q0x, q0y, q0z
