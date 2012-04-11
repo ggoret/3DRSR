@@ -108,7 +108,7 @@
  }
  
  if( ((PyArrayObject *) $input )->descr->type_num != PyArray_FLOAT )  {
-   PyErr_SetString(PyExc_ValueError, "VOLUME is not of type float.");
+   PyErr_SetString(PyExc_ValueError, "QFIN is not of type float.");
    return NULL;
  }
 
@@ -146,7 +146,7 @@
  }
  
  if( ((PyArrayObject *) $input )->descr->type_num != PyArray_FLOAT )  {
-   PyErr_SetString(PyExc_ValueError, "VOLUME is not of type float.");
+   PyErr_SetString(PyExc_ValueError, "IMAGE_check is not of type float.");
    return NULL;
  }
 

@@ -21,6 +21,8 @@ except:
 import sys, time
 __version__=0.1
 
+import fillvolume
+
 #--------------------------------------------------------------------------------------------------------
 # Logo
 #--------------------------------------------------------------------------------------------------------
@@ -331,8 +333,16 @@ def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Qmax,p
 	print  "data    ",  data   .shape   
 
 	print "  ENTREE DE FUNC_SOMME >>>>>>>>>>>>>>>>>>>>>>>>>>" 
+	Qfin=Qfin.astype(np.float32)
+	print Volume.dtype
+	print Mask.dtype
+	print Qfin.dtype
+	print " ----------- " 
+	print data.dtype
+	print POL_tmp.dtype
+	print C3.dtype
 	#func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data,POL_tmp,C3  )
-	func_somme(q0x, q0y, q0z, dqx, dqy, dqz, nz, ny, nx, Volume, Mask, dim1, dim2, Qfin, data, POL_tmp, C3)
+	fillvolume.func_somme(q0x, q0y, q0z, dqx, dqy, dqz, Volume, Mask,  Qfin, data, POL_tmp, C3)
 	print "  SORTIE DE FUNC_SOMME <<<<<<<<<<<<<<<<<<<<<<<<<<" 
 	
 def func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data, POL_tmp, C3):
@@ -434,13 +444,17 @@ def main():
 		POL_tmp += 	(1-params.pol_degree)*(1-(np.tensordot(params.normal_to_pol,P_total_tmp,axes=([0],[2]))/P_total_tmp_modulus)**2)
 	else :
 		print 'Computation of Polarisation Correction : Canceled'
+
 	
+	POL_tmp=POL_tmp.astype(np.float32)
+
+
 	time7 = time.time()
 	print '-> t = %.2f s'%(time7-time6)	
 	
 	if params.cpt_corr:
 		print 'Computation of Flux Density and Parallax Correction ...'
-		C3 =  params.dist**3/(params.dist**2+np.sum (XY_array_tmp*XY_array_tmp, axis = -1 ) )**(3/2)
+		C3 = ( params.dist**3/(params.dist**2+np.sum (XY_array_tmp*XY_array_tmp, axis = -1 ) )**(3/2)).astype(np.float32)
 	else:
 		print 'Computation of Flux Density and Parallax Correction : Canceled'
 		
@@ -465,7 +479,8 @@ def main():
 		
 		img = fabio.open(fname)
 		print 'Working on image %s'%fname
-		data = img.data
+		data = img.data.astype(np.float32)
+
 		"""
 		dim1,dim2 = 2527,2463 
 		data = np.ones((dim1,dim2),dtype = np.int32)*10000

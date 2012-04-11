@@ -45,19 +45,26 @@ void func_somme(	float  q0x ,float q0y ,float q0z,
   ny_2 = (ny-1)/ 2; 
   nz_2 = (nz-1)/ 2; 
 
-  printf( "RECIPROCAL SPACE CENTER  =%e %e %e", q0x, q0y, q0z);
-  printf( "-----------------------------\n");
-  printf( "Computation of 3D Volume Indices ...\n");
-  
   //  time9 = time.time()
   
   
-  
+  float a,b,c; 
+  a=(nx_2  * (1.0 + ( Qfin[ipoint*3+0]-q0x)/dqx ));
+  b=(ny_2  * (1.0 + ( Qfin[ipoint*3+1]-q0y)/dqy ));
+  c=(nz_2  * (1.0 + ( Qfin[ipoint*3+2]-q0z)/dqz ));
+
+
+
   for(ipoint=0; ipoint<npoints; ipoint++) {
   	
-    i = floor( (  (nx_2  * (1.0 + ( Qfin[ipoint*3+0]-q0x)/dqx ))));
-    j = floor( (  (ny_2  * (1.0 + ( Qfin[ipoint*3+1]-q0y)/dqy ))));
-    k = floor( (  (nz_2  * (1.0 + ( Qfin[ipoint*3+2]-q0z)/dqz ))));
+    /* i = floor( (  (nx_2  * (1.0 + ( Qfin[ipoint*3+0]-q0x)/dqx )))); */
+    /* j = floor( (  (ny_2  * (1.0 + ( Qfin[ipoint*3+1]-q0y)/dqy )))); */
+    /* k = floor( (  (nz_2  * (1.0 + ( Qfin[ipoint*3+2]-q0z)/dqz )))); */
+
+    FLOAT_TO_INT( a  ,i);
+    FLOAT_TO_INT( b  ,j);
+    FLOAT_TO_INT( c  ,k);
+    
     if(i<=nx && j<=ny && k<=nz ) {
       Volume[ (k*ny +j)*nx +i ] +=  data[ipoint]/(POL_tmp[ipoint] *C3[ipoint]);  
       Mask[ (k*ny +j)*nx +i ] += 1.0;
