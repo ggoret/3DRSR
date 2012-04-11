@@ -182,7 +182,7 @@ void pippo(int  Nz, int Ny, int Nx, float  * VOLUME )  ;
 
 */
 
-def func_somme(	float  q0x ,float q0y ,float q0z,
+void func_somme(	float  q0x ,float q0y ,float q0z,
 	       float  dqx ,float dqy ,float dqz ,
 
 		int  Nz, int Ny, int Nx, float  * VOLUME,  
