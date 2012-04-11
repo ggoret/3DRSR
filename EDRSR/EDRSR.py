@@ -272,26 +272,10 @@ def closest_ccp4_type(dtype):
 #--------------------------------------------------------------------------------------------------------
 # Projection
 #--------------------------------------------------------------------------------------------------------
-"""
-def project_image(data,                            float32 (dim1,dim2) 
-		  p0,                              float(dim1,dim2,3)
-		  Q0,                              float(dim1,dim2,3)
-		  XY_array_tmp,                    float(dim1,dim2,2) 
-		  P_total_tmp,                     float(dim1,dim2,3)
-		  P_total_tmp_modulus,             float(dim1,dim2)
-		  Qmax,                            float
-		  params,                          object
-		  Volume,                          float(nz,ny,nz   )
-		  Mask,                            float(nz,ny,nz   ) 
-		  C3,                              float32 (dim1,dim2) 
-		  POL_tmp                          float32 (dim1,dim2)  
-		  ):
-"""
 
 def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Qmax,params, Volume, Mask,C3,  POL_tmp):
 	
 	dim1,dim2 = data.shape
-
 
 	R = Prim_Rot_of_RS(params.omega,params.phi,params.kappa,params.alpha,params.beta,params.omega_offset)
 	U = Snd_Rot_of_RS(params.r1,params.r2,params.r3)
@@ -305,7 +289,6 @@ def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Qmax,p
 	Qfin = np.tensordot (Q , U.T , axes=([2],[1]))
 	time6 = time.time()
 	print '-> t = %.2f s'%(time6-time5)
-	print Qfin.shape
 	print '--------------------------------------'
 	
 	cube_dim= params.cube_dim
@@ -316,60 +299,7 @@ def project_image(data,p0,Q0,XY_array_tmp,P_total_tmp,P_total_tmp_modulus,Qmax,p
 		
 	q0x = q0y = q0z = 0
 	
-	comment="""
-	# Qfin float (dim1,dim2,3)
-	#  Volume,                          float(nz,ny,nz   )
-	#  Mask,                            float(nz,ny,nz   ) 
-	#  C3,                              float32 (dim1,dim2) 
-	#  POL_tmp                          float32 (dim1,dim2)  
-	# (data,                            float32 (dim1,dim2) 
-"""
-	print " COMMENT " ,  comment
-	print  "Qfin    ",  Qfin   .shape            
-	print  "Volume  ",  Volume .shape          
-	print  "Mask    ",  Mask   .shape         
-	print  "C3      ",  C3     .shape         
-	print  "POL_tmp ",  POL_tmp.shape            
-	print  "data    ",  data   .shape   
-
-	print "  ENTREE DE FUNC_SOMME >>>>>>>>>>>>>>>>>>>>>>>>>>" 
-	Qfin=Qfin.astype(np.float32)
-	print Volume.dtype
-	print Mask.dtype
-	print Qfin.dtype
-	print " ----------- " 
-	print data.dtype
-	print POL_tmp.dtype
-	print C3.dtype
-	#func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data,POL_tmp,C3  )
 	fillvolume.func_somme(q0x, q0y, q0z, dqx, dqy, dqz, Volume, Mask,  Qfin, data, POL_tmp, C3)
-	print "  SORTIE DE FUNC_SOMME <<<<<<<<<<<<<<<<<<<<<<<<<<" 
-	
-def func_somme(cube_dim  , q0x , q0y , q0z,  dqx , dqy , dqz , Qfin,Volume,Mask, data, POL_tmp, C3):
-	dim1,dim2 = data.shape
-
-	print 'RECIPROCAL SPACE CENTER  =', q0x, q0y, q0z
-	print '-----------------------------'
-	
-	print 'Computation of 3D Volume Indices ...'
-	
-	time9 = time.time()
-	I_array_tmp = (np.floor((cube_dim-1)//2 * (1 + (Qfin[:,:,0]-q0x)/dqx))).astype(np.int32)
-	J_array_tmp = (np.floor((cube_dim-1)//2 * (1 + (Qfin[:,:,1]-q0y)/dqy))).astype(np.int32)
-	K_array_tmp = (np.floor((cube_dim-1)//2 * (1 + (Qfin[:,:,2]-q0z)/dqz))).astype(np.int32)
-	
-	I_array = I_array_tmp[np.where(I_array_tmp<= cube_dim)].reshape(dim1,dim2)
-	J_array = J_array_tmp[np.where(J_array_tmp<= cube_dim)].reshape(dim1,dim2)
-	K_array = K_array_tmp[np.where(K_array_tmp<= cube_dim)].reshape(dim1,dim2)
-	time10 = time.time()
-	print '-> t = %.2f s'%(time10-time9)
-	
-
-	print 'Summing Corrected Intensity into the Volume ...'
-	Volume[I_array,J_array,K_array] += data/(POL_tmp*C3) # Data Correction
-	Mask[I_array,J_array,K_array] += 1
-
-	return I_array,J_array,K_array
 	
 #--------------------------------------------------------------------------------------------------------
 # Main
@@ -480,7 +410,9 @@ def main():
 		img = fabio.open(fname)
 		print 'Working on image %s'%fname
 		data = img.data.astype(np.float32)
-
+		
+		timeI1 = time.time()
+		print '-> time for opening image = %.2f s'%(timeI1-timeI0)
 		"""
 		dim1,dim2 = 2527,2463 
 		data = np.ones((dim1,dim2),dtype = np.int32)*10000
@@ -493,10 +425,11 @@ def main():
 		# Volume[I_array,J_array,K_array] += data/(POL_tmp*C3) # Data Correction
 		# Mask[I_array,J_array,K_array] += 1
 		nbfile += 1
+		timeI2 = time.time()
+		print '-> time for projecting image = %.2f s'%(timeI2-timeI1)
 		print '##################################'
 		print 'Progression : %6.2f %% '%((nbfile/total)*100.)
-		timeI1 = time.time()	
-		print '-> time for this image = %.2f s'%(timeI1-timeI0)
+		print '-> total time for this image = %.2f s'%(timeI2-timeI0)
 		print '##################################'
 		
 	time11 = time.time()
