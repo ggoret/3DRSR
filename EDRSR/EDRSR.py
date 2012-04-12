@@ -188,10 +188,10 @@ def write_ccp4_grid_data(volume,path):
 	for k in range(K):
 		matrix = volume[:,:,k]
 		if dtype != mtype:
-			matrix = matrix.astype(dtype)
+			matrix = matrix.astype(mtype)
 		f.write(matrix.tostring())
 	# Put matrix statistics in header
-	header = ccp4_header(volume, dtype)
+	#header = ccp4_header(volume, mtype)
 	f.seek(0)
 	f.write(header)
 	f.close()
