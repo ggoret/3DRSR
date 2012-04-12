@@ -37,7 +37,7 @@ void func_somme(	float  q0x ,float q0y ,float q0z,
 
   int i,j,k;
   int nz_2, ny_2, nx_2;
-  int npoints, ipoint, icubdim_2;
+  int npoints, ipoint;
   
   npoints = dim1*dim2;
 
@@ -49,18 +49,13 @@ void func_somme(	float  q0x ,float q0y ,float q0z,
   
   
   float a,b,c; 
-  a=(nx_2  * (1.0 + ( Qfin[ipoint*3+0]-q0x)/dqx ));
-  b=(ny_2  * (1.0 + ( Qfin[ipoint*3+1]-q0y)/dqy ));
-  c=(nz_2  * (1.0 + ( Qfin[ipoint*3+2]-q0z)/dqz ));
-
-
-
   for(ipoint=0; ipoint<npoints; ipoint++) {
-  	
+  	a=(nx_2  * (1.0 + ( Qfin[ipoint*3+0]-q0x)/dqx ));
+    b=(ny_2  * (1.0 + ( Qfin[ipoint*3+1]-q0y)/dqy ));
+    c=(nz_2  * (1.0 + ( Qfin[ipoint*3+2]-q0z)/dqz ));
     /* i = floor( (  (nx_2  * (1.0 + ( Qfin[ipoint*3+0]-q0x)/dqx )))); */
     /* j = floor( (  (ny_2  * (1.0 + ( Qfin[ipoint*3+1]-q0y)/dqy )))); */
     /* k = floor( (  (nz_2  * (1.0 + ( Qfin[ipoint*3+2]-q0z)/dqz )))); */
-
     FLOAT_TO_INT( a  ,i);
     FLOAT_TO_INT( b  ,j);
     FLOAT_TO_INT( c  ,k);
