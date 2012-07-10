@@ -63,9 +63,10 @@ def write_ccp4_grid_data(volume,path):
 	for k in range(K):
 		matrix = volume[:,:,k]
 		if dtype != mtype:
-			matrix = matrix.astype(mtype)
+			matrix = matrix.astype(dtype)
 		f.write(matrix.tostring())
 	# Put matrix statistics in header
+	header = ccp4_header(volume, dtype)
 	f.seek(0)
 	f.write(header)
 	f.close()
@@ -140,8 +141,7 @@ def closest_ccp4_type(dtype):
 		ctype = np.int8
 	else:
 		raise TypeError, ('Volume data has unrecognized type %s' % dtype)
-
-	return 
+	return ctype
     
 #------------------------------------------------------------------------------   
     
