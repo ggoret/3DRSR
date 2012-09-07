@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ###################################################################################
-# 3D Reciprocal Space Reconstruction
+# Projection cython module of 3D Reciprocal Space Reconstruction
 # Gael Goret and Jerome Kieffer for the European Synchrotron Radiation Facility
 # gael.goret@esrf.fr
 ###################################################################################
@@ -65,7 +65,7 @@ def func_somme(float q0x, float q0y, float q0z,
                     i = <int> (nx_2  * (one + (qfx-q0x)/dqx ))
                     j = <int> (ny_2  * (one + (qfy-q0y)/dqy ))
                     k = <int> (nz_2  * (one + (qfz-q0z)/dqz ))
-                    if (i<=nx) and (j<=ny) and (k<=nz ):
+                    if (i<nx) and (j<ny) and (k<nz ):
                         pv = data[l,m]/(POL_tmp[l,m] *C3[l,m]) 
                         Volume[i,j,k] += pv    
                         Mask[i,j,k] += <int>(pv!=0)

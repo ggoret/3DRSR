@@ -18,7 +18,7 @@ except:
 
 import numpy as np
 import sys, time
-__version__ = 0.1
+__version__ = 0.5
 
 import fillvolume_cy as fillvolume
 
@@ -201,74 +201,97 @@ MD7 = np.array([[0, -1], [-1, 0]], dtype=np.int32)
 # Parameter Class
 #--------------------------------------------------------------------------------------------------------
 
-class Parameters(object):
-    def __init__(self):
-        #Feo : 
-        """
-        self.pixel_size = np.float32(0.172) # mm
-        detector_distance = np.float32(174.42) # mm    
-        self.dist = np.float32(detector_distance * 1.72)  # mm
-        self.beam_tilt_angle = np.float32(0.99075) # deg
 
-        self.det_origin_X = np.float32(1712.50841)
-        self.det_origin_Y = np.float32(1733.19127)
+def read_configuration_file(cfgfn):
+	"""
+	cfgfn is the filename of the configuration file.
+	the function return an object containing information from configuration file (cf inside cfg file).
+	"""
+	
+	try:
+		s=open(cfgfn,"r")
+	except:
+		print " Error reading configuration file " ,  cfgfn			
+		exceptionType, exceptionValue, exceptionTraceback = sys.exc_info()
+		print "*** print_exception:"
+		traceback.print_exception(exceptionType, exceptionValue, exceptionTraceback,
+                              limit=None, file=sys.stdout)
+		raise Exception
+	class Parameters():
+		exec(s)
+	cfg = Parameters()
+	s.close()
+	return cfg
+"""
+## Examples :
+#Feo : 
 
-        self.lmbda = np.float32(0.67018) # Wavelength users specified (ang)
-        self.kappa = np.float32(-134.)
-        self.alpha = np.float32(50.)
-        self.beta = np.float32(0.)
-        self.omega = np.float32(57.)
-        self.theta = np.float32(0.)
-        self.phi = np.float32(0.) #(n-1)*0.1 where n is the number of image
+self.pixel_size = np.float32(0.172) # mm
+detector_distance = np.float32(174.42) # mm    
+self.dist = np.float32(detector_distance * 1.72)  # mm
+self.beam_tilt_angle = np.float32(0.99075) # deg
 
-        self.omega_offset = np.float32(-0.19777)
-        self.theta_offset = np.float32(0.39804)
+self.det_origin_X = np.float32(1712.50841)
+self.det_origin_Y = np.float32(1733.19127)
 
-        self.d1 = np.float32(-0.41144)
-        self.d2 = np.float32(1.17097)
+self.lmbda = np.float32(0.67018) # Wavelength users specified (ang)
+self.kappa = np.float32(-134.)
+self.alpha = np.float32(50.)
+self.beta = np.float32(0.)
+self.omega = np.float32(57.)
+self.theta = np.float32(0.)
+self.phi = np.float32(0.) #(n-1)*0.1 where n is the number of image
 
-        self.r1 = np.float32(-88.788)
-        self.r2 = np.float32(2.257)
-        self.r3 = np.float32(69.629)
+self.omega_offset = np.float32(-0.19777)
+self.theta_offset = np.float32(0.39804)
 
-        self.pol_degree = np.float32(1.) # polarisation degree
-        self.normal_to_pol = np.array([0, 0, 1], dtype=np.float32) # normal to polarisation plane
-        """
-        #GdFeSb :
-        self.pixel_size = np.float32(0.172) # mm
-        detector_distance = np.float32(174.42) # mm    
-        self.dist = np.float32(detector_distance * 1.72)  # mm
-        self.beam_tilt_angle = np.float32(1.06345) # deg
+self.d1 = np.float32(-0.41144)
+self.d2 = np.float32(1.17097)
 
-        self.det_origin_X = np.float32(1710.12344)
-        self.det_origin_Y = np.float32(1734.16990)
+self.r1 = np.float32(-88.788)
+self.r2 = np.float32(2.257)
+self.r3 = np.float32(69.629)
 
-        self.lmbda = np.float32(0.68870) # Wavelength users specified (ang)
-        self.kappa = np.float32(-134.)
-        self.alpha = np.float32(50.)
-        self.beta = np.float32(0.)
-        self.omega = np.float32(57.)
-        self.theta = np.float32(0.)
-        self.phi = np.float32(0.) #(n-1)*0.1 where n is the number of image
+self.pol_degree = np.float32(1.) # polarisation degree
+self.normal_to_pol = np.array([0, 0, 1], dtype=np.float32) # normal to polarisation plane
 
-        self.omega_offset = np.float32(-0.31320)# -
-        self.theta_offset = np.float32(0.33914)
+#GdFeSb :
+self.pixel_size = np.float32(0.172) # mm
+detector_distance = np.float32(174.42) # mm    
+self.dist = np.float32(detector_distance * 1.72)  # mm
+self.beam_tilt_angle = np.float32(1.06345) # deg
 
-        self.d1 = np.float32(-0.17552)
-        self.d2 = np.float32(1.27807)
+self.det_origin_X = np.float32(1710.12344)
+self.det_origin_Y = np.float32(1734.16990)
 
-        self.r1 = np.float32(53.898)
-        self.r2 = np.float32(29.653)
-        self.r3 = np.float32(54.696)
+self.lmbda = np.float32(0.68870) # Wavelength users specified (ang)
+self.kappa = np.float32(-134.)
+self.alpha = np.float32(50.)###
+self.beta = np.float32(0.)###
+self.omega = np.float32(57.)
+self.theta = np.float32(0.)
+self.phi = None #(n-1)*0.1 where n is the number of image
 
-        self.pol_degree = np.float32(1.) # polarisation degree
-        self.normal_to_pol = np.array([0, 0, 1], dtype=np.float32) # normal to polarisation plane
-        
-        self.cube_dim = 256 + 1
+self.omega_offset = np.float32(-0.31320)# -
+self.theta_offset = np.float32(0.33914)
 
-        #DEBUG OPTIONS :
-        self.cpt_corr = True
+self.d1 = np.float32(-0.17552)
+self.d2 = np.float32(1.27807)
 
+self.r1 = np.float32(53.898)
+self.r2 = np.float32(29.653)
+self.r3 = np.float32(54.696)
+
+self.pol_degree = np.float32(1.) # polarisation degree
+self.normal_to_pol = np.array([0, 0, 1], dtype=np.float32) # normal to polarisation plane
+
+self.cube_dim = 256 + 1
+
+self.angular_step = 0.1
+
+#DEBUG OPTIONS :
+self.cpt_corr = True
+"""
 #--------------------------------------------------------------------------------------------------------
 # Miscelaneous
 #--------------------------------------------------------------------------------------------------------              
@@ -483,7 +506,6 @@ def project_image_and_slice(data, p0, Q0, XY_array_tmp, P_total_tmp, P_total_tmp
     Q = np.tensordot(Q0 , R.T , axes=([2],[1]))
     Qfin = np.tensordot(Q , U.T , axes=([2],[1]))
     
-    #Qn = np.tensordot(Qfin, G, axes=([2],[1]))
     Qoff = np.dot(Qoff,G)
     
     fillvolume.slice_somme(dQ0,dQ1,dQ2,Qoff,Image,Mask,Qfin,data,POL_tmp,C3,Filter, apply_sym,ops_list,G)
@@ -495,7 +517,7 @@ def project_image_and_slice(data, p0, Q0, XY_array_tmp, P_total_tmp, P_total_tmp
 
 generators = ['1','1~','2(x)','2(y)','2(z)','2(110)','3(z)','3(111)','4(z)','4(z)~','m(x)','m(y)','m(z)']
 
-def main3d(Filter_fname,flist):
+def main3d(Config_fname,Filter_fname,flist):
     print(np.array(generators))
     print('---------------------------------------------------------------')
     counterror = 0
@@ -578,10 +600,20 @@ def main3d(Filter_fname,flist):
     print 'Image Dimension :', dim1, dim2
 
     print 'Setting Parameters ...'
-    params = Parameters()
-
+    params = read_configuration_file(Config_fname)
+    params.normal_to_pol = np.array(params.normal_to_pol).astype(np.float32)# be carefull of the list type alla should be nparray
+    for attr in dir(params):
+        if '__' not in attr:
+            exec("tmp = params.%s"%attr)
+            print "params.%s = "%attr, tmp
+    
     p0 = P0(params.dist, params.beam_tilt_angle)
     MD = MD4
+
+    #inversion of detector origin component due to MD inversion.
+    tmp = params.det_origin_X
+    params.det_origin_X = params.det_origin_Y
+    params.det_origin_Y = tmp
 
     time2 = time.time()
     print 'Computation of Initial Projection Coordinates Q0'
@@ -622,8 +654,6 @@ def main3d(Filter_fname,flist):
         POL_tmp = params.pol_degree * (1 - ((P0xn * P_total_tmp).sum(axis= -1) / (P0xn_modulus * P_total_tmp_modulus)) ** 2)
         POL_tmp += (1 - params.pol_degree) * (1 - ((params.normal_to_pol * P_total_tmp).sum(axis=-1) / P_total_tmp_modulus) ** 2)
          
-        #POL_tmp = ((params.dist ** 2 + (XY_array_tmp[:,:,1]*XY_array_tmp[:,:,1])) / (params.dist ** 2 + np.sum (XY_array_tmp * XY_array_tmp, axis= -1)))
-        
     else :
         print 'Computation of Polarisation Correction : Canceled'
 
@@ -636,7 +666,7 @@ def main3d(Filter_fname,flist):
 
     if params.cpt_corr:
         print 'Computation of Flux Density and Parallax Correction ...'
-        C3 = (params.dist ** 3 / (params.dist ** 2 + np.sum (XY_array_tmp * XY_array_tmp, axis= -1)) ** (3 / 2)).astype(np.float32)
+        C3 = (params.dist ** 3 / (params.dist ** 2 + np.sum (XY_array_tmp * XY_array_tmp, axis= -1)) ** (3/2.)).astype(np.float32)
     else:
         print 'Computation of Flux Density and Parallax Correction : Canceled'
 
@@ -650,7 +680,7 @@ def main3d(Filter_fname,flist):
     print '-----------------------------'
     print 'Qmax = ', Qmax
 
-    cube_dim = params.cube_dim
+    cube_dim = int(params.cube_dim)
     Volume = np.zeros((cube_dim, cube_dim, cube_dim), dtype=np.float32)
     Mask = np.zeros((cube_dim, cube_dim, cube_dim), dtype=np.float32)
     total = len(flist)
@@ -660,7 +690,7 @@ def main3d(Filter_fname,flist):
     f = open(Filter_fname,'rb')
     raw_data = f.read()
     Filter = np.fromstring(raw_data, np.uint8).reshape((dim1,dim2)).astype(np.float32)
-    angular_step = 0.1
+    angular_step = params.angular_step
     #interp_factor = 1
     for fname in flist:
         timeI0 = time.time()
@@ -685,7 +715,7 @@ def main3d(Filter_fname,flist):
         print '------------------------------------------------------------'
         print '\n'
         
-
+    
     time11 = time.time()
     print '3D Intensity Distribution : Done'
     threeDid = Volume[np.where(Volume > 0)]
@@ -693,6 +723,7 @@ def main3d(Filter_fname,flist):
     vmin, vmax = min(threeDid), max(threeDid)
     print '-> Total time = %.2f s' % (time11 - time0)
 ##################################
+    mapout = Volume
     skip_avg = False
     if len(ops_list)==1:
         absdiff = abs(ops_list[0] - np.identity(3))
@@ -702,8 +733,11 @@ def main3d(Filter_fname,flist):
         print '------------------------------------------------------------'
         print 'NCS 3D intensity distribution averaging procedure START'
         print '------------------------------------------------------------'
-        Cpt = Mask[:]
+        filter_ids = np.where(Volume!=0)
+        Volume[filter_ids] = Volume[filter_ids]/Mask[filter_ids]
+        
         Mask[np.where(Mask > 0)] = 1
+        Cpt = np.zeros_like(Mask)
         NCS_AVG = np.zeros_like(Volume)
         symopnb = 0
         for op in ops_list:
@@ -713,9 +747,13 @@ def main3d(Filter_fname,flist):
             tmp_intens,tmp_cpt = fillvolume.orient_volume(Volume, Mask, op)
             NCS_AVG += tmp_intens
             Cpt += tmp_cpt
-        mapout = np.zeros_like(NCS_AVG)
-        filter_ids = np.where(NCS_AVG!=0)
-        mapout[filter_ids] = NCS_AVG[filter_ids]/Cpt[filter_ids]
+    else:
+        Cpt = Mask[:]
+        NCS_AVG = Volume[:]
+        
+    mapout = np.zeros_like(NCS_AVG)
+    filter_ids = np.where(NCS_AVG!=0)
+    mapout[filter_ids] = NCS_AVG[filter_ids]/Cpt[filter_ids]
     write_ccp4_grid_data( mapout, 'ncs_averaged_map.ccp4')
 ###################################
     print 'Normal END'
@@ -724,7 +762,7 @@ def main3d(Filter_fname,flist):
 # 2D Main
 #--------------------------------------------------------------------------------------------------------
 
-def main2d(Filter_fname,flist):
+def main2d(Config_fname,Filter_fname,flist):
     print('------------------------------------------------------------')
     counterror = 0
     vect_a = np.array([])
@@ -873,8 +911,15 @@ def main2d(Filter_fname,flist):
     print 'Image Dimension :', dim1, dim2
 
     print 'Setting Parameters ...'
-    params = Parameters()
-
+    params = read_configuration_file(Config_fname)
+    params.normal_to_pol = np.array(params.normal_to_pol).astype(np.float32)# be carefull of the list type alla should be nparray
+    
+    for attr in dir(params):
+        if '__' not in attr:
+            exec("tmp = params.%s"%attr)
+            print "params.%s = "%attr, tmp
+   
+   
     p0 = P0(params.dist, params.beam_tilt_angle)
     MD = MD4
 
@@ -882,7 +927,12 @@ def main2d(Filter_fname,flist):
     print 'Computation of Initial Projection Coordinates Q0'
     Q0 = np.zeros((dim1, dim2, 3), dtype=np.float32)
     MD_pix_tmp = params.pixel_size * MD
-
+    
+    #inversion of detector origin component due to MD inversion.
+    tmp = params.det_origin_X
+    params.det_origin_X = params.det_origin_Y
+    params.det_origin_Y = tmp
+    
     X_array_tmp = np.zeros((dim1, 2))
     X_array_tmp [:, 0] = np.arange(dim1) - (params.det_origin_X - 1725 + dim1 / 2.0)
 
@@ -911,7 +961,7 @@ def main2d(Filter_fname,flist):
     time6 = time.time()
     if params.cpt_corr :
         print 'Computation of Polarisation Correction ...'
-        
+        params.normal_to_pol = np.array(params.normal_to_pol).astype(np.float32)
         P0xn = np.cross(p0, params.normal_to_pol, axis=0)
         P0xn_modulus = np.sqrt(np.sum(P0xn * P0xn, axis= -1))
         POL_tmp = params.pol_degree * (1 - ((P0xn * P_total_tmp).sum(axis= -1) / (P0xn_modulus * P_total_tmp_modulus)) ** 2)
@@ -926,7 +976,7 @@ def main2d(Filter_fname,flist):
 
     if params.cpt_corr:
         print 'Computation of Flux Density and Parallax Correction ...'
-        C3 = (params.dist ** 3 / (params.dist ** 2 + np.sum (XY_array_tmp * XY_array_tmp, axis= -1)) ** (3 / 2)).astype(np.float32)
+        C3 = (params.dist ** 3 / (params.dist ** 2 + np.sum (XY_array_tmp * XY_array_tmp, axis= -1)) ** (3/2.)).astype(np.float32)
     else:
         print 'Computation of Flux Density and Parallax Correction : Canceled'
 
@@ -939,7 +989,7 @@ def main2d(Filter_fname,flist):
     Qmax = mag_max(corners) # maximal magnitude for reciprocal vector corresponding to the corners pixels
     print '-----------------------------'
     print 'Qmax = ', Qmax
-    size = 2300
+    size = 2300 #TODO from param
     Image = np.zeros((size,size), dtype=np.float32)#dimension can change !
     Mask = np.zeros((size,size), dtype=np.float32)
     total = len(flist)
@@ -949,7 +999,7 @@ def main2d(Filter_fname,flist):
     f = open(Filter_fname,'rb')
     raw_data = f.read()
     Filter = np.fromstring(raw_data, np.uint8).reshape((dim1,dim2)).astype(np.float32)
-    angular_step = 0.1
+    angular_step = params.angular_step
     #interp_factor = 1
     for fname in flist:
 
@@ -985,10 +1035,10 @@ def main2d(Filter_fname,flist):
     mapout = np.zeros_like(Image)
     mapout[np.where(Image!=0)] = Image[np.where(Image!=0)]/Mask[np.where(Image!=0)]
     mardata,size = padd_mar(mapout)
-    out = fabio.mar345image.mar345image(data=mardata, header=img.header)
+    out = fabio.mar345image.mar345image(data=mardata.astype(np.int32), header=img.header)
     out.write('map2D.mar%d'%size)
     np.save('map2D.npy', mapout)
-    np.save('mask2D.npy', Mask)
+    #np.save('mask2D.npy', Mask)
     print 'Normal END'
 
 #--------------------------------------------------------------------------------------------------------
@@ -997,8 +1047,9 @@ def main2d(Filter_fname,flist):
 
 def main():
     display_logo()
-    Filter_fname = sys.argv[1]
-    flist = sys.argv[2:]
+    Config_fname = sys.argv[1]
+    Filter_fname = sys.argv[2]
+    flist = sys.argv[3:]
     counterror = 0
     while 1:
 	    choice = raw_input('Would you like to reconstruct the whole volume [v] or a slice [s] : ')
@@ -1015,15 +1066,15 @@ def main():
 	    else:
 		    break
     if choice in ['V','v']:
-        main3d(Filter_fname,flist)
+        main3d(Config_fname,Filter_fname,flist)
     elif choice in ['S','s']:
-        main2d(Filter_fname,flist)
+        main2d(Config_fname,Filter_fname,flist)
 
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print('Usage : python 3DRSR.py image-file(s)')
+    if len(sys.argv) < 3:
+        print('Usage : python 3DRSR.py 3DRSR.conf Filter_file images-file(s)')
     else:
         main()
     sys.exit()
